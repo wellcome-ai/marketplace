@@ -1,0 +1,8 @@
+{
+  "name": "wellcome",
+  "description": "Opinionated scaffolding for accelerated build days. Run /wellcome:create-app to build a working app via guided Q&A.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Richard Bremner"
+  }
+}
