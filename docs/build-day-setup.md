@@ -57,9 +57,9 @@ claude plugin install wellcome@wellcome-ai
 
 then restart the desktop app. Confirm the installed version matches the latest in `.claude-plugin/marketplace.json`.
 
-## Reference: known-good versions
+## Reference: versions
 
-Verified on a clean build:
+Known-good as of mid-2026:
 
 - Node v24.8.0, npm 11.6.0, git 2.50.1
 - Generated app stack: Next.js 16, React 19, shadcn/ui (Base UI components), Tailwind v4

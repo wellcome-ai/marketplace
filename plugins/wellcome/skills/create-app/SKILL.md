@@ -29,9 +29,9 @@ Three phases, in order:
 
 ---
 
-## Current stack notes — verified 2026-06 (read before building)
+## Stack notes (current as of 2026 — read before building)
 
-The scaffold pulls the latest npm packages, which have drifted from older training data. These are confirmed on a clean build and will bite if you assume the old APIs:
+The scaffold installs current npm packages whose APIs have moved past older defaults. Assume the old APIs and the build breaks — check these before writing code:
 
 - **Next.js scaffolds at v16+ (App Router, Turbopack).** create-next-app writes an `AGENTS.md` warning that the framework has breaking changes — heed it. Server Components are still the default.
 - **shadcn/ui now ships Base UI components (`@base-ui/react`), not Radix.** The Radix `asChild` prop **does not exist** and will cause a TypeScript error plus a console warning. To render a custom element as a trigger, use the **`render` prop**: `<DropdownMenuTrigger render={<Badge />}>label</DropdownMenuTrigger>`. If the render target is not a native `<button>` (e.g. a span-based Badge), also pass `nativeButton={false}`.
