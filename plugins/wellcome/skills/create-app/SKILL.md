@@ -29,6 +29,18 @@ Three phases, in order:
 
 ---
 
+## Current stack notes — verified 2026-06 (read before building)
+
+The scaffold pulls the latest npm packages, which have drifted from older training data. These are confirmed on a clean build and will bite if you assume the old APIs:
+
+- **Next.js scaffolds at v16+ (App Router, Turbopack).** create-next-app writes an `AGENTS.md` warning that the framework has breaking changes — heed it. Server Components are still the default.
+- **shadcn/ui now ships Base UI components (`@base-ui/react`), not Radix.** The Radix `asChild` prop **does not exist** and will cause a TypeScript error plus a console warning. To render a custom element as a trigger, use the **`render` prop**: `<DropdownMenuTrigger render={<Badge />}>label</DropdownMenuTrigger>`. If the render target is not a native `<button>` (e.g. a span-based Badge), also pass `nativeButton={false}`.
+- **`npx shadcn@latest add form` is currently broken on Next 16** — it reports success but writes no `form.tsx` and does not install `react-hook-form`/`zod`. Do **not** include `form` in the component batch (see 3c). If a form is genuinely needed, install `react-hook-form zod @hookform/resolvers` directly and build it with plain inputs. Most simple apps don't need the form abstraction.
+
+These notes cover the known traps, not every possible one — when any install or generated code fails, read the error and adapt.
+
+---
+
 ## Phase 1 — Intake
 
 Ask these questions in order. For **Q1, Q2, Q8** ask conversationally in plain text and wait for the reply. For **Q3–Q7** use the `AskUserQuestion` tool — batch Q3+Q4+Q5+Q6 in one call, then Q7 on its own.
@@ -128,6 +140,15 @@ If they want to change something, ask which question to revisit, update the answ
 
 Do the work. Give brief progress updates only ("Setting up the project…", "Adding Supabase…", "Building the {feature} feature…"). Do not narrate git or low-level install commands.
 
+### The app must run with zero configuration
+
+The user is at a build day with **no external accounts** — no Supabase project, no API keys. The app you ship must work in the browser immediately after `npm run dev` with an empty `.env`. Therefore:
+
+- **Implement the core data layer with a browser-local fallback (localStorage) by default**, so all create/read/update/delete works offline with no setup.
+- Still scaffold the Supabase client and the SQL migration (steps 3d onward) — these are the documented upgrade path, not the live data layer for v1.
+- Write the data-access module so it uses Supabase **only when `NEXT_PUBLIC_SUPABASE_URL` is set**, and falls back to localStorage otherwise. A missing env var must never throw at runtime or render a broken page.
+- The same principle applies to every service that needs a key (AI, email, payments, maps): guard on the env var, degrade gracefully, never crash the page when a key is absent.
+
 ### 3a. Create the app directory
 
 - Derive a kebab-case directory name from the app name (e.g. "Helpdesk Buddy" → `helpdesk-buddy`). Strip non-alphanumeric chars.
@@ -143,7 +164,7 @@ Commit: `chore: scaffold next.js`
 
 ### 3c. Add shadcn/ui and base deps
 
-Run `npx shadcn@latest init` with `-d` (defaults) to set up shadcn non-interactively. Then add a baseline set of components: `button`, `card`, `input`, `label`, `dialog`, `form`, `sonner`, `dropdown-menu`, `avatar`, `badge`, `separator`. (Adding `form` pulls in `react-hook-form` and `zod` as transitive deps — confirm they land in `package.json`.)
+Run `npx shadcn@latest init` with `-d` (defaults) to set up shadcn non-interactively. Then add a baseline set of components: `button`, `card`, `input`, `label`, `dialog`, `sonner`, `dropdown-menu`, `avatar`, `badge`, `separator`. (Do **not** add `form` — it is currently broken on Next 16; see Current stack notes. If a form is genuinely needed later, install its deps directly with `npm install react-hook-form zod @hookform/resolvers`.)
 
 Install `date-fns` — nearly every app touches dates:
 
@@ -154,6 +175,8 @@ npm install date-fns
 Commit: `chore: add shadcn/ui and base deps`
 
 ### 3d. Add Supabase (always)
+
+Per the zero-config rule above, this is the **upgrade path**, not the live v1 data layer — the app's CRUD falls back to localStorage when no Supabase env vars are present.
 
 Install `@supabase/supabase-js` and `@supabase/ssr`. Create the standard Next.js App Router Supabase client setup:
 
@@ -288,7 +311,7 @@ Now use Q2 (description) and Q8 (notes) to build the user's actual feature.
 1. `npx tsc --noEmit` passes with no type errors
 2. `npm run build` exits 0 with no errors
 3. The home page (`src/app/page.tsx`) is replaced with something that reflects the user's app, not the default Next.js placeholder
-4. The core user journey from Q2 is implemented end-to-end. Identify 1-3 core entities from Q2 and create: a list view, create/edit, and detail view for the primary one
+4. The core user journey from Q2 is implemented end-to-end. Identify 1-3 core entities from Q2 and create: a list view, create/edit, and detail view for the primary one. The data layer works with an empty `.env` via the localStorage fallback and switches to Supabase only when `NEXT_PUBLIC_SUPABASE_URL` is set
 5. Database tables for the core entities are defined in `supabase/migrations/0001_initial.sql` (Postgres DDL — they don't need to be applied; the file is the source of truth)
 6. If auth was selected: a user can reach `/login`, sign in via magic link, and protected pages redirect to `/login` when unauthenticated
 7. If storage was selected: at least one place in the UI uses the upload helper
@@ -301,7 +324,7 @@ Now use Q2 (description) and Q8 (notes) to build the user's actual feature.
 14. If Sentry was selected: Sentry is configured in all three config files and initializes without errors at app boot
 15. If Mapbox was selected: at least one map view renders in the UI with a sensible default centre and zoom
 16. If @react-pdf/renderer was selected: a PDF generation route exists and a "download" entry point is wired up in the UI
-17. The dev server (`npm run dev`) starts without errors
+17. The dev server (`npm run dev`) starts and the home page renders in the browser with **no runtime errors and an empty `.env`** (no environment variables required for v1)
 
 #### Iteration loop
 
