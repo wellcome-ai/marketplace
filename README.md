@@ -90,3 +90,7 @@ Workshop participants who:
 - Have one day to ship something working
 
 If you're a working developer, you probably want to pick your own stack — this plugin's whole point is to take that choice away.
+
+## Running a build day?
+
+If you're the facilitator setting up a room of machines, see [`docs/build-day-setup.md`](docs/build-day-setup.md) for the per-machine prep checklist and what to tell participants on the day.
