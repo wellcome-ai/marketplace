@@ -146,7 +146,7 @@ The user is at a build day with **no external accounts** — no Supabase project
 
 - **Core data (the app's main entities) persists in the browser via localStorage in local mode**, so all create/read/update/delete works with zero setup. Because localStorage is browser-only, the entity views and their data hooks are **Client Components (`"use client"`) in local mode** — a deliberate, sanctioned exception to the "Server Components by default" rule, for the data layer only. Put all localStorage access in Client Components only; the `typeof window !== "undefined"` guard is a belt-and-suspenders check for the `npm run build` prerender pass, **not** licence to read localStorage from a Server Component (that renders empty on the server and triggers a hydration mismatch).
 - **Route all data access through one client-side module** (e.g. `src/lib/data/<entity>.ts`, marked `"use client"`). It exposes CRUD functions and, inside, uses the **browser** Supabase client (`src/lib/supabase/client.ts`) when configured and localStorage otherwise — decided by a single helper `isSupabaseConfigured()` that returns true only when **both** `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are present **and non-empty** (a present-but-blank value, e.g. after `cp .env.example .env.local`, counts as not configured). The whole data layer is client-side — do **not** import the Supabase *server* client (`server.ts`, which uses `next/headers`) into this module, or it can't host the localStorage branch and the build breaks. The UI always calls the module; the module picks the backend. Never build two parallel data layers in the UI.
-- **Keyed services (auth, AI, email, payments, maps) are wired but inert in local mode — never faked, never crashing.** When the relevant key is absent, the feature renders a calm "connect {service} to enable this" state (or is hidden) instead of throwing, and it activates for real once the key is added. Do not simulate sign-in, payments, or sends — an inert, clearly-labelled control is correct; a fake success is not.
+- **Keyed services (auth, storage, AI, email, payments, maps, analytics, error monitoring, background jobs) are wired but inert in local mode — never faked, never crashing.** When the relevant key is absent, the feature renders a calm "connect {service} to enable this" state (or is hidden) instead of throwing, and it activates for real once the key is added. Do not simulate sign-in, payments, or sends — an inert, clearly-labelled control is correct; a fake success is not.
 - Still scaffold the Supabase client, the SQL migration, and each selected service's client/helpers (steps 3d onward) — they are the live path the moment their keys exist.
 
 ### 3a. Create the app directory
@@ -210,6 +210,7 @@ Commit: `feat: add supabase auth`
 
 If selected:
 - Add `src/lib/supabase/storage.ts` with `uploadFile`, `getPublicUrl`, `deleteFile` helpers
+- In local mode (`isSupabaseConfigured()` false) the upload control renders inert/labelled ("connect Supabase to enable uploads") rather than throwing, and uploads for real once Supabase is configured
 - In README.md, add a note that a storage bucket needs to be created in the Supabase dashboard (give the bucket name you used in code)
 
 Commit: `feat: add supabase storage helpers`
@@ -257,8 +258,8 @@ For each tool matched in Phase 1.5, install and configure it. Skip any that were
 
 **Stripe** — payments
 - Install: `npm install stripe @stripe/stripe-js`
-- Create `src/lib/stripe/server.ts` (server client) and `src/lib/stripe/client.ts` (`loadStripe` helper)
-- Create `src/app/api/checkout/route.ts` that creates a Checkout session
+- Create `src/lib/stripe/server.ts` and `src/lib/stripe/client.ts` (`loadStripe` helper). Construct the Stripe server client lazily inside the functions that use it, never at module load — an empty `STRIPE_SECRET_KEY` makes `new Stripe()` throw and would break the build's route-collection pass
+- Create `src/app/api/checkout/route.ts` that creates a Checkout session (also construct the client lazily inside the handler)
 - Create `src/app/api/stripe/webhook/route.ts` with signature verification and an event-switch skeleton (construct the Stripe server client lazily inside the handler, never at module top-level, so the build's route-collection pass doesn't instantiate it without keys)
 - Add a Buy/Checkout button to a sensible UI surface; when Stripe keys are absent it renders inert/labelled ("connect Stripe to enable checkout") rather than erroring. Construct the Stripe client lazily, never at module load
 - Add to `.env.example`: `STRIPE_SECRET_KEY=`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=`, `STRIPE_WEBHOOK_SECRET=`
@@ -373,7 +374,7 @@ Keep this final message short and encouraging. Don't list every file you created
 - **All API keys go in `.env.example` as empty placeholders.** Never use real keys, never test live API calls during scaffolding.
 - **Always App Router**, never Pages Router.
 - **Server Components by default**, Client Components only when interactivity requires it.
-- **Server Actions** for form submissions where possible.
+- **Server Actions** for form submissions where possible — **except the core entity CRUD forms**, which use Client Component handlers calling the client-side data module (the local-mode data layer is client-only; a Server Action can't read or write localStorage). Reserve Server Actions for flows that don't touch the local data layer.
 - **Conventional commit messages**, atomic commits, no commits that leave the build broken (run a quick `tsc --noEmit` check before committing where reasonable).
 - **Stick to the chosen stack — do not add tools beyond what Q3–Q8 selected.** This is a one-day build.
 - **If the user pushes back during the build phase** ("actually I want X instead"), incorporate the change and continue. Don't restart.
