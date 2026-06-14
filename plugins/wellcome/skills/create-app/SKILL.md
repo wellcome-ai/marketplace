@@ -35,7 +35,7 @@ The scaffold installs current npm packages whose APIs have moved past older defa
 
 - **Next.js scaffolds at v16+ (App Router, Turbopack).** create-next-app writes an `AGENTS.md` warning that the framework has breaking changes — heed it. Server Components are still the default.
 - **shadcn/ui now ships Base UI components (`@base-ui/react`), not Radix.** The Radix `asChild` prop **does not exist** and will cause a TypeScript error plus a console warning. To render a custom element as a trigger, use the **`render` prop**: `<DropdownMenuTrigger render={<Badge />}>label</DropdownMenuTrigger>`. If the render target is not a native `<button>` (e.g. a span-based Badge), also pass `nativeButton={false}`.
-- **`npx shadcn@latest add form` is currently broken on Next 16** — it reports success but writes no `form.tsx` and does not install `react-hook-form`/`zod`. Do **not** include `form` in the component batch (see 3c). If a form is genuinely needed, install `react-hook-form zod @hookform/resolvers` directly and build it with plain inputs. Most simple apps don't need the form abstraction.
+- **`shadcn add form` can silently no-op on Next 16.** If `npx shadcn@latest add form` reports success but writes no `src/components/ui/form.tsx` (and adds no `react-hook-form`/`zod`), don't fight it: install `react-hook-form zod @hookform/resolvers` directly and build the form with plain inputs. It's left out of the default batch in 3c for this reason; most simple apps don't need the form abstraction anyway.
 
 These notes cover the known traps, not every possible one — when any install or generated code fails, read the error and adapt.
 
@@ -140,14 +140,14 @@ If they want to change something, ask which question to revisit, update the answ
 
 Do the work. Give brief progress updates only ("Setting up the project…", "Adding Supabase…", "Building the {feature} feature…"). Do not narrate git or low-level install commands.
 
-### The app must run with zero configuration
+### The app must run with zero configuration ("local mode")
 
-The user is at a build day with **no external accounts** — no Supabase project, no API keys. The app you ship must work in the browser immediately after `npm run dev` with an empty `.env`. Therefore:
+The user is at a build day with **no external accounts** — no Supabase project, no API keys. The app you ship must load and be usable in the browser immediately after `npm install && npm run dev` with **no `.env` file at all**. Call this **local mode**. Adding real keys later upgrades the same app in place. This rule governs how the build resolves every keyed service, so apply it throughout:
 
-- **Implement the core data layer with a browser-local fallback (localStorage) by default**, so all create/read/update/delete works offline with no setup.
-- Still scaffold the Supabase client and the SQL migration (steps 3d onward) — these are the documented upgrade path, not the live data layer for v1.
-- Write the data-access module so it uses Supabase **only when `NEXT_PUBLIC_SUPABASE_URL` is set**, and falls back to localStorage otherwise. A missing env var must never throw at runtime or render a broken page.
-- The same principle applies to every service that needs a key (AI, email, payments, maps): guard on the env var, degrade gracefully, never crash the page when a key is absent.
+- **Core data (the app's main entities) persists in the browser via localStorage in local mode**, so all create/read/update/delete works with zero setup. Because localStorage is browser-only, the entity views and their data hooks are **Client Components (`"use client"`) in local mode** — a deliberate, sanctioned exception to the "Server Components by default" rule, for the data layer only. Guard every localStorage access with `typeof window !== "undefined"` so SSR and `npm run build` never throw.
+- **Route all data access through one module** (e.g. `src/lib/data/<entity>.ts`) that exposes CRUD functions. Inside it, use Supabase when configured and localStorage otherwise — decided by a single helper `isSupabaseConfigured()` that returns true only when **both** `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are present **and non-empty** (a present-but-blank value, e.g. after `cp .env.example .env.local`, counts as not configured). The UI always calls the module; the module picks the backend. Never build two parallel data layers in the UI.
+- **Keyed services (auth, AI, email, payments, maps) are wired but inert in local mode — never faked, never crashing.** When the relevant key is absent, the feature renders a calm "connect {service} to enable this" state (or is hidden) instead of throwing, and it activates for real once the key is added. Do not simulate sign-in, payments, or sends — an inert, clearly-labelled control is correct; a fake success is not.
+- Still scaffold the Supabase client, the SQL migration, and each selected service's client/helpers (steps 3d onward) — they are the live path the moment their keys exist.
 
 ### 3a. Create the app directory
 
@@ -164,7 +164,7 @@ Commit: `chore: scaffold next.js`
 
 ### 3c. Add shadcn/ui and base deps
 
-Run `npx shadcn@latest init` with `-d` (defaults) to set up shadcn non-interactively. Then add a baseline set of components: `button`, `card`, `input`, `label`, `dialog`, `sonner`, `dropdown-menu`, `avatar`, `badge`, `separator`. (Do **not** add `form` — it is currently broken on Next 16; see Current stack notes. If a form is genuinely needed later, install its deps directly with `npm install react-hook-form zod @hookform/resolvers`.)
+Run `npx shadcn@latest init` with `-d` (defaults) to set up shadcn non-interactively. Then add a baseline set of components: `button`, `card`, `input`, `label`, `dialog`, `sonner`, `dropdown-menu`, `avatar`, `badge`, `separator`. (`form` is intentionally omitted — it can silently no-op on Next 16; see the **Stack notes** section above. If you need a form later, install its deps directly with `npm install react-hook-form zod @hookform/resolvers`.)
 
 Install `date-fns` — nearly every app touches dates:
 
@@ -294,8 +294,8 @@ For each tool matched in Phase 1.5, install and configure it. Skip any that were
 
 Generate `README.md` with:
 - App name and description (from Q2)
-- **Quick start**: copy `.env.example` to `.env.local`, fill in values, `npm install`, `npm run dev`
-- **Services to set up**: for each selected service, a one-line description of what to do (e.g. "Supabase: create a project at https://supabase.com/dashboard, copy the URL and anon key into `.env.local`"). Include only the services the user opted into.
+- **Quick start**: `npm install`, then `npm run dev` — the app runs in local mode with no configuration. Note that data is stored in the browser until real services are connected.
+- **Connect real services later (optional)**: copy `.env.example` to `.env.local` and fill in values to switch from local mode to live services. For each selected service, a one-line description of what to do (e.g. "Supabase: create a project at https://supabase.com/dashboard, copy the URL and anon key into `.env.local`"). Include only the services the user opted into.
 - **Deploy**: a short note that Vercel is the recommended deployment target, with a link to https://vercel.com/new
 
 Commit: `docs: add readme`
@@ -308,23 +308,25 @@ Now use Q2 (description) and Q8 (notes) to build the user's actual feature.
 
 #### Success criteria for v1 (all must hold)
 
+For any criterion that depends on an external key (auth, AI, email, payments, maps, analytics, error monitoring), the **local-mode bar** applies: the feature must be wired and render without crashing when its key is absent, and work for real once the key is added. "Wired but inert" passes; a live round-trip is not required to ship v1 (see the local-mode rule at the top of Phase 3).
+
 1. `npx tsc --noEmit` passes with no type errors
 2. `npm run build` exits 0 with no errors
 3. The home page (`src/app/page.tsx`) is replaced with something that reflects the user's app, not the default Next.js placeholder
-4. The core user journey from Q2 is implemented end-to-end. Identify 1-3 core entities from Q2 and create: a list view, create/edit, and detail view for the primary one. The data layer works with an empty `.env` via the localStorage fallback and switches to Supabase only when `NEXT_PUBLIC_SUPABASE_URL` is set
+4. The core user journey from Q2 is implemented end-to-end. Identify 1-3 core entities from Q2 and create: a list view, create/edit, and detail view for the primary one. Core data works in local mode via localStorage and switches to Supabase only when `isSupabaseConfigured()` is true (both URL and anon key present and non-empty)
 5. Database tables for the core entities are defined in `supabase/migrations/0001_initial.sql` (Postgres DDL — they don't need to be applied; the file is the source of truth)
-6. If auth was selected: a user can reach `/login`, sign in via magic link, and protected pages redirect to `/login` when unauthenticated
-7. If storage was selected: at least one place in the UI uses the upload helper
-8. If AI was selected: at least one place in the UI uses the AI client (e.g. a "summarise" or "generate" button)
-9. If email was selected: at least one place in the flow calls `sendEmail` (e.g. welcome email triggered on first sign-in, or notification on a key action)
+6. If auth was selected: `/login` and the session middleware exist and render without error in local mode; once Supabase is configured, a user can sign in via magic link and protected pages redirect to `/login` when unauthenticated
+7. If storage was selected: at least one place in the UI uses the upload helper; with no Supabase configured the upload control is inert/labelled rather than throwing
+8. If AI was selected: at least one UI surface wires the AI client (e.g. a "summarise" or "generate" button); with no API key it shows an inert "connect {provider}" state, and calls the client for real once the key is set
+9. If email was selected: at least one place in the flow calls `sendEmail` (e.g. welcome email on first sign-in, or a notification on a key action); with no key the call path is a labelled no-op, not a crash
 10. If charts were selected: at least one chart view exists with realistic-looking data (even if mocked)
 11. If Trigger.dev was selected: at least one task is defined in `src/trigger/` and referenced or invoked from somewhere in the app
-12. If Stripe was selected: a Checkout flow exists end-to-end (button → API route → Stripe session) and the webhook handler skeleton is in place
-13. If PostHog was selected: PostHog is initialized in the root layout, page views are auto-captured, and at least one custom event is fired
-14. If Sentry was selected: Sentry is configured in all three config files and initializes without errors at app boot
-15. If Mapbox was selected: at least one map view renders in the UI with a sensible default centre and zoom
+12. If Stripe was selected: a Checkout flow is wired (button → API route → Stripe session) and the webhook handler skeleton is in place; with no Stripe keys the checkout entry point is inert/labelled rather than erroring
+13. If PostHog was selected: PostHog is initialized in the root layout, page views are auto-captured, and at least one custom event is fired (and it no-ops cleanly when the key is absent)
+14. If Sentry was selected: Sentry is configured in all three config files and initializes without errors at app boot (and no-ops cleanly when the DSN is absent)
+15. If Mapbox was selected: a map view renders when a token is present, and shows a placeholder (not a crash) when the token is absent
 16. If @react-pdf/renderer was selected: a PDF generation route exists and a "download" entry point is wired up in the UI
-17. The dev server (`npm run dev`) starts and the home page renders in the browser with **no runtime errors and an empty `.env`** (no environment variables required for v1)
+17. The dev server (`npm run dev`) starts and the home page renders in the browser with **no runtime errors and no `.env` file present** (the app runs in local mode with zero environment variables)
 
 #### Iteration loop
 
@@ -346,12 +348,11 @@ When the build is done, tell the user:
 
 To start it:
   cd {dir}
-  cp .env.example .env.local
-  # Fill in the values (see README for which accounts to create)
   npm install
   npm run dev
 
-Open http://localhost:3000 to see it.
+Open http://localhost:3000 to see it. It runs right away — no setup needed.
+(When you're ready to connect real services, see the README.){if any keyed service was selected}
 
 What's built:
   - {one-liner per feature, max 5}

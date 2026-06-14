@@ -10,7 +10,7 @@ It asks the builder eight short questions, then silently sets up the project and
 
 ## Installation
 
-> **Heads-up for the Claude desktop app:** the in-app `/plugin` command is **not available** in the desktop app — typing it returns *"/plugin isn't available in this environment."* You cannot install from inside the desktop app. Install once from a terminal (it writes to the shared `~/.claude/plugins` config the desktop app reads), then **restart the desktop app** so `/wellcome:create-app` appears. The `/plugin …` slash commands below only work in the **terminal** Claude Code interactive session.
+> **Heads-up for the Claude desktop app:** as of mid-2026 the in-app `/plugin` command is **not available** in the desktop app — typing it returns *"/plugin isn't available in this environment."* You cannot install from inside the desktop app. Install once from a terminal (it writes to the shared `~/.claude/plugins` config the desktop app reads), then **restart the desktop app** so `/wellcome:create-app` appears. The `/plugin …` slash commands below only work in the **terminal** Claude Code interactive session.
 
 **In the terminal Claude Code session:**
 
