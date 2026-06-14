@@ -34,7 +34,7 @@ Three phases, in order:
 The scaffold installs current npm packages whose APIs have moved past older defaults. Assume the old APIs and the build breaks — check these before writing code:
 
 - **Next.js scaffolds at v16+ (App Router, Turbopack).** create-next-app writes an `AGENTS.md` warning that the framework has breaking changes — heed it. Server Components are still the default.
-- **shadcn/ui now ships Base UI components (the MUI Base UI library), not Radix** — you won't install it by hand (shadcn pulls it in), so don't guess the package name. The Radix `asChild` prop **does not exist** and will cause a TypeScript error plus a console warning. To render a custom element as a trigger, use the **`render` prop**: `<DropdownMenuTrigger render={<Badge />}>label</DropdownMenuTrigger>`. If the render target is not a native `<button>` (e.g. a span-based Badge), also pass `nativeButton={false}`.
+- **Recent shadcn/ui defaults to Base UI components (the MUI Base UI library), not Radix — but check what `init` actually generated rather than assuming.** Open a generated trigger (e.g. `src/components/ui/dropdown-menu.tsx`): if it imports from a Base UI package, the Radix `asChild` prop **does not exist** there — using it raises a TypeScript error and a console warning. For Base UI, render a custom element as a trigger with the **`render` prop**: `<DropdownMenuTrigger render={<Badge />}>label</DropdownMenuTrigger>`, and add `nativeButton={false}` when the render target is not a native `<button>` (e.g. a span-based Badge). If the generated components are still Radix-based, the classic `asChild` applies instead — let the generated code, not this note, decide.
 - **`shadcn add form` can silently no-op on Next 16.** If `npx shadcn@latest add form` reports success but writes no `src/components/ui/form.tsx` (and adds no `react-hook-form`/`zod`), don't fight it: install `react-hook-form zod @hookform/resolvers` directly and build the form with plain inputs. It's left out of the default batch in 3c for this reason; most simple apps don't need the form abstraction anyway.
 
 These notes cover the known traps, not every possible one — when any install or generated code fails, read the error and adapt.
@@ -259,7 +259,7 @@ For each tool matched in Phase 1.5, install and configure it. Skip any that were
 - Install: `npm install stripe @stripe/stripe-js`
 - Create `src/lib/stripe/server.ts` (server client) and `src/lib/stripe/client.ts` (`loadStripe` helper)
 - Create `src/app/api/checkout/route.ts` that creates a Checkout session
-- Create `src/app/api/stripe/webhook/route.ts` with signature verification and an event-switch skeleton
+- Create `src/app/api/stripe/webhook/route.ts` with signature verification and an event-switch skeleton (construct the Stripe server client lazily inside the handler, never at module top-level, so the build's route-collection pass doesn't instantiate it without keys)
 - Add a Buy/Checkout button to a sensible UI surface; when Stripe keys are absent it renders inert/labelled ("connect Stripe to enable checkout") rather than erroring. Construct the Stripe client lazily, never at module load
 - Add to `.env.example`: `STRIPE_SECRET_KEY=`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=`, `STRIPE_WEBHOOK_SECRET=`
 - Commit: `feat: add stripe for payments`
@@ -267,15 +267,15 @@ For each tool matched in Phase 1.5, install and configure it. Skip any that were
 **PostHog** — analytics
 - Install: `npm install posthog-js posthog-node`
 - Create `src/lib/posthog/client.ts` (browser) and `src/lib/posthog/server.ts` (server)
-- Wire a PostHog provider into the root layout so page views are auto-captured
-- Fire at least one custom event from the app (e.g. on signup or on a key action)
+- Wire a PostHog provider into the root layout so page views are auto-captured. The provider is a `"use client"` component that **skips `posthog.init()` entirely when `NEXT_PUBLIC_POSTHOG_KEY` is absent** (returns children unwrapped) — in local mode it fires no events and logs no errors
+- Fire at least one custom event from the app (e.g. on signup or on a key action), guarded so it is a no-op when the key is absent
 - Add to `.env.example`: `NEXT_PUBLIC_POSTHOG_KEY=`, `NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com`
 - Commit: `feat: add posthog analytics`
 
 **Sentry** — error monitoring
 - Install: `npm install @sentry/nextjs`
-- Create `sentry.client.config.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts` reading DSN from env
-- Wrap `next.config.ts` export with `withSentryConfig`
+- Create `sentry.client.config.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts` reading DSN from env; `Sentry.init` no-ops cleanly when `NEXT_PUBLIC_SENTRY_DSN` is absent (an empty DSN disables Sentry)
+- Wrap `next.config.ts` export with `withSentryConfig`, configured to **disable source-map upload when `SENTRY_AUTH_TOKEN` is absent** so `npm run build` exits 0 with no `.env` present (no upload attempt, no build error)
 - Add to `.env.example`: `NEXT_PUBLIC_SENTRY_DSN=` and `SENTRY_AUTH_TOKEN=`
 - Commit: `feat: add sentry for error monitoring`
 
