@@ -174,12 +174,15 @@ npm install date-fns
 
 Commit: `chore: add shadcn/ui and base deps`
 
+> **Local-mode contract for every service below (3d–3j).** Apply this in each section, not just here — you build these sections one at a time, so each must hold on its own. No service client may crash when its key is absent. Never construct an SDK client at module load with a missing or empty key (`new OpenAI({ apiKey })`, `new Stripe(...)`, a Mapbox token, etc. throw or misbehave on a blank value). Guard on the key, construct the client lazily inside the function that uses it, and when the key is absent render the inert "connect {service}" state (or no-op) the success criteria require.
+
 ### 3d. Add Supabase (always)
 
 Per the zero-config rule above, this is the **upgrade path**, not the live v1 data layer — the app's CRUD falls back to localStorage when no Supabase env vars are present.
 
 Install `@supabase/supabase-js` and `@supabase/ssr`. Create the standard Next.js App Router Supabase client setup:
 
+- `src/lib/supabase/config.ts` — exports `isSupabaseConfigured()`, returning true only when **both** `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are present and non-empty. The data module and every Supabase-dependent guard import this — do not re-implement the check inline.
 - `src/lib/supabase/client.ts` — browser client (for Client Components)
 - `src/lib/supabase/server.ts` — server client (for Server Components / Route Handlers / Server Actions, using `cookies()` from `next/headers`)
 
@@ -316,7 +319,7 @@ For any criterion that depends on an external key (auth, AI, email, payments, ma
 4. The core user journey from Q2 is implemented end-to-end. Identify 1-3 core entities from Q2 and create: a list view, create/edit, and detail view for the primary one. Core data works in local mode via localStorage and switches to Supabase only when `isSupabaseConfigured()` is true (both URL and anon key present and non-empty)
 5. Database tables for the core entities are defined in `supabase/migrations/0001_initial.sql` (Postgres DDL — they don't need to be applied; the file is the source of truth)
 6. If auth was selected: `/login` and the session middleware exist and render without error in local mode; once Supabase is configured, a user can sign in via magic link and protected pages redirect to `/login` when unauthenticated
-7. If storage was selected: at least one place in the UI uses the upload helper; with no Supabase configured the upload control is inert/labelled rather than throwing
+7. If storage was selected: at least one place in the UI uses the upload helper; with no Supabase configured the upload control is inert/labelled rather than throwing, and uploads for real once Supabase is configured
 8. If AI was selected: at least one UI surface wires the AI client (e.g. a "summarise" or "generate" button); with no API key it shows an inert "connect {provider}" state, and calls the client for real once the key is set
 9. If email was selected: at least one place in the flow calls `sendEmail` (e.g. welcome email on first sign-in, or a notification on a key action); with no key the call path is a labelled no-op, not a crash
 10. If charts were selected: at least one chart view exists with realistic-looking data (even if mocked)
@@ -352,7 +355,7 @@ To start it:
   npm run dev
 
 Open http://localhost:3000 to see it. It runs right away — no setup needed.
-(When you're ready to connect real services, see the README.){if any keyed service was selected}
+{if any keyed service was selected, add a line: "When you're ready to connect real services (sign-in, AI, email, etc.), see the README."}
 
 What's built:
   - {one-liner per feature, max 5}
