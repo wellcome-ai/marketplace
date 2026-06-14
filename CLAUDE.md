@@ -4,13 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A Claude Code plugin marketplace. There is no build, test, or lint step — the repo is three declarative files plus a README.
+A Claude Code plugin marketplace. There is no build, test, or lint step — the repo is a few declarative files plus a README and facilitator docs.
 
 ```
 .claude-plugin/marketplace.json               marketplace catalog
 plugins/wellcome/.claude-plugin/plugin.json   plugin manifest
 plugins/wellcome/skills/create-app/SKILL.md   skill body (where the logic lives)
 README.md                                     user-facing intro
+docs/build-day-setup.md                       facilitator setup guide
 ```
 
 The plugin's audience is **non-technical participants on Wellcome AI's accelerated build days**. Every editorial choice in SKILL.md serves them, not engineers — keep that in mind when editing copy.

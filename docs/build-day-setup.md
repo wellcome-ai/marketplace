@@ -13,13 +13,13 @@ Do this ahead of time on each machine — not live during the session. About 5 m
 ### 1. Check prerequisites
 
 ```bash
-node --version    # must be >= 20.9 (24.x is fine)
+node --version    # >= 20.9 required; 22 LTS or newer recommended (stack is validated on 24.x)
 npm --version
 git --version
 claude --version  # the terminal Claude Code CLI must be installed
 ```
 
-If Node is missing or below 20.9, install Node 20.9+ (or 24 LTS). If `claude` is missing, install the Claude Code CLI first.
+If Node is missing or below 20.9, install Node 22 LTS or newer (the stack is validated on 24.x; below 22 is untested). If `claude` is missing, install the Claude Code CLI first.
 
 ### 2. Install the plugin (terminal)
 

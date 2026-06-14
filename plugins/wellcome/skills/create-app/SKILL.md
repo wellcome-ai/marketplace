@@ -145,7 +145,7 @@ Do the work. Give brief progress updates only ("Setting up the project…", "Add
 The user is at a build day with **no external accounts** — no Supabase project, no API keys. The app you ship must load and be usable in the browser immediately after `npm install && npm run dev` with **no `.env` file at all**. Call this **local mode**. Adding real keys later upgrades the same app in place. This rule governs how the build resolves every keyed service, so apply it throughout:
 
 - **Core data (the app's main entities) persists in the browser via localStorage in local mode**, so all create/read/update/delete works with zero setup. Because localStorage is browser-only, the entity views and their data hooks are **Client Components (`"use client"`) in local mode** — a deliberate, sanctioned exception to the "Server Components by default" rule, for the data layer only. Put all localStorage access in Client Components only; the `typeof window !== "undefined"` guard is a belt-and-suspenders check for the `npm run build` prerender pass, **not** licence to read localStorage from a Server Component (that renders empty on the server and triggers a hydration mismatch).
-- **Route all data access through one module** (e.g. `src/lib/data/<entity>.ts`) that exposes CRUD functions. Inside it, use Supabase when configured and localStorage otherwise — decided by a single helper `isSupabaseConfigured()` that returns true only when **both** `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are present **and non-empty** (a present-but-blank value, e.g. after `cp .env.example .env.local`, counts as not configured). The UI always calls the module; the module picks the backend. Never build two parallel data layers in the UI.
+- **Route all data access through one client-side module** (e.g. `src/lib/data/<entity>.ts`, marked `"use client"`). It exposes CRUD functions and, inside, uses the **browser** Supabase client (`src/lib/supabase/client.ts`) when configured and localStorage otherwise — decided by a single helper `isSupabaseConfigured()` that returns true only when **both** `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are present **and non-empty** (a present-but-blank value, e.g. after `cp .env.example .env.local`, counts as not configured). The whole data layer is client-side — do **not** import the Supabase *server* client (`server.ts`, which uses `next/headers`) into this module, or it can't host the localStorage branch and the build breaks. The UI always calls the module; the module picks the backend. Never build two parallel data layers in the UI.
 - **Keyed services (auth, AI, email, payments, maps) are wired but inert in local mode — never faked, never crashing.** When the relevant key is absent, the feature renders a calm "connect {service} to enable this" state (or is hidden) instead of throwing, and it activates for real once the key is added. Do not simulate sign-in, payments, or sends — an inert, clearly-labelled control is correct; a fake success is not.
 - Still scaffold the Supabase client, the SQL migration, and each selected service's client/helpers (steps 3d onward) — they are the live path the moment their keys exist.
 
@@ -184,7 +184,7 @@ Install `@supabase/supabase-js` and `@supabase/ssr`. Create the standard Next.js
 
 - `src/lib/supabase/config.ts` — exports `isSupabaseConfigured()`, returning true only when **both** `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are present and non-empty. The data module and every Supabase-dependent guard import this — do not re-implement the check inline.
 - `src/lib/supabase/client.ts` — browser client (for Client Components)
-- `src/lib/supabase/server.ts` — server client (for Server Components / Route Handlers / Server Actions, using `cookies()` from `next/headers`)
+- `src/lib/supabase/server.ts` — server client (using `cookies()` from `next/headers`) — reserved for auth and Route Handlers only; the entity data layer uses the browser client, not this
 
 Add to `.env.example`:
 ```
@@ -199,8 +199,8 @@ Commit: `chore: add supabase client`
 ### 3e. Supabase Auth (conditional on Q3)
 
 If selected:
-- Create `src/middleware.ts` with the standard Supabase auth middleware (refreshes session, protects routes)
-- Create `src/app/login/page.tsx` with a sign-in form (email magic link is the simplest default — no password needed)
+- Create `src/middleware.ts` with the standard Supabase auth middleware (refreshes session, protects routes). **Gate it on `isSupabaseConfigured()`: when Supabase env vars are absent (local mode), the middleware is a pass-through — construct no client, refresh nothing, redirect nothing.** It only refreshes sessions and protects routes once Supabase is configured. Otherwise it throws or bounces every page to `/login` with no `.env`, breaking the zero-config guarantee.
+- Create `src/app/login/page.tsx` with a sign-in form (email magic link is the simplest default — no password needed). In local mode it renders as an inert "connect Supabase to enable sign-in" state rather than attempting a magic link.
 - Create `src/app/auth/callback/route.ts` for the OAuth/magic link callback
 - Add a sign-out action somewhere reasonable (header dropdown)
 
@@ -222,7 +222,7 @@ Commit: `feat: add supabase storage helpers`
 | OpenAI | `openai` | `OPENAI_API_KEY` | `src/lib/ai/openai.ts` |
 | Gemini | `@google/generative-ai` | `GOOGLE_GENERATIVE_AI_API_KEY` | `src/lib/ai/gemini.ts` |
 
-Install the matching package, add the env var to `.env.example`, and create the client file with a configured client and a sample helper function (e.g. `generateText(prompt)`).
+Install the matching package, add the env var to `.env.example`, and create the client file with a sample helper function (e.g. `generateText(prompt)`). Construct the SDK client lazily inside the helper (not at module load), and where it surfaces in the UI render the inert "connect {provider}" state when the key is absent — build that state here, in this step, not only at criteria-check time (per the local-mode contract).
 
 Commit: `feat: add {provider} ai sdk`
 
@@ -230,7 +230,7 @@ Commit: `feat: add {provider} ai sdk`
 
 If selected:
 - Install `resend`, `react-email`, `@react-email/components`
-- Create `src/lib/email/resend.ts` with a configured client and a `sendEmail({ to, subject, react })` helper
+- Create `src/lib/email/resend.ts` with a `sendEmail({ to, subject, react })` helper that constructs the Resend client lazily and becomes a labelled no-op (logs and returns) when `RESEND_API_KEY` is absent — never throw at the call site in local mode
 - Create `src/emails/welcome.tsx` as a sample React Email template
 - Add `RESEND_API_KEY=` and `RESEND_FROM_EMAIL=onboarding@resend.dev` to `.env.example`
 
@@ -260,7 +260,7 @@ For each tool matched in Phase 1.5, install and configure it. Skip any that were
 - Create `src/lib/stripe/server.ts` (server client) and `src/lib/stripe/client.ts` (`loadStripe` helper)
 - Create `src/app/api/checkout/route.ts` that creates a Checkout session
 - Create `src/app/api/stripe/webhook/route.ts` with signature verification and an event-switch skeleton
-- Add a Buy/Checkout button to a sensible UI surface
+- Add a Buy/Checkout button to a sensible UI surface; when Stripe keys are absent it renders inert/labelled ("connect Stripe to enable checkout") rather than erroring. Construct the Stripe client lazily, never at module load
 - Add to `.env.example`: `STRIPE_SECRET_KEY=`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=`, `STRIPE_WEBHOOK_SECRET=`
 - Commit: `feat: add stripe for payments`
 
@@ -281,7 +281,7 @@ For each tool matched in Phase 1.5, install and configure it. Skip any that were
 
 **Mapbox** — maps
 - Install: `npm install mapbox-gl react-map-gl`
-- Create `src/components/Map.tsx` as a reusable Client Component wrapping `react-map-gl` with a sensible default centre and zoom
+- Create `src/components/Map.tsx` as a reusable Client Component wrapping `react-map-gl` with a sensible default centre and zoom; when `NEXT_PUBLIC_MAPBOX_TOKEN` is absent it renders a labelled placeholder instead of a broken/crashing map
 - Use the Map component in at least one UI surface
 - Add to `.env.example`: `NEXT_PUBLIC_MAPBOX_TOKEN=`
 - Commit: `feat: add mapbox for maps`
