@@ -29,6 +29,18 @@ Three phases, in order:
 
 ---
 
+## Stack notes (current as of 2026 — read before building)
+
+The scaffold installs current npm packages whose APIs have moved past older defaults. Assume the old APIs and the build breaks — check these before writing code:
+
+- **Next.js scaffolds at v16+ (App Router, Turbopack).** create-next-app writes an `AGENTS.md` warning that the framework has breaking changes — heed it. Server Components are still the default.
+- **Recent shadcn/ui defaults to Base UI components (the headless library shadcn adopted in place of Radix) — but check what `init` actually generated rather than assuming.** Open a generated trigger (e.g. `src/components/ui/dropdown-menu.tsx`): if it imports from a Base UI package, the Radix `asChild` prop **does not exist** there — using it raises a TypeScript error and a console warning. For Base UI, render a custom element as a trigger with the **`render` prop**: `<DropdownMenuTrigger render={<Badge />}>label</DropdownMenuTrigger>`, and add `nativeButton={false}` when the render target is not a native `<button>` (e.g. a span-based Badge). If the generated components are still Radix-based, the classic `asChild` applies instead — let the generated code, not this note, decide.
+- **`shadcn add form` can silently no-op on Next 16.** If `npx shadcn@latest add form` reports success but writes no `src/components/ui/form.tsx` (and adds no `react-hook-form`/`zod`), don't fight it: install `react-hook-form zod @hookform/resolvers` directly and build the form with plain inputs. It's left out of the default batch in 3c for this reason; most simple apps don't need the form abstraction anyway.
+
+These notes cover the known traps, not every possible one — when any install or generated code fails, read the error and adapt.
+
+---
+
 ## Phase 1 — Intake
 
 Ask these questions in order. For **Q1, Q2, Q8** ask conversationally in plain text and wait for the reply. For **Q3–Q7** use the `AskUserQuestion` tool — batch Q3+Q4+Q5+Q6 in one call, then Q7 on its own.
@@ -128,6 +140,15 @@ If they want to change something, ask which question to revisit, update the answ
 
 Do the work. Give brief progress updates only ("Setting up the project…", "Adding Supabase…", "Building the {feature} feature…"). Do not narrate git or low-level install commands.
 
+### The app must run with zero configuration ("local mode")
+
+The user is at a build day with **no external accounts** — no Supabase project, no API keys. The app you ship must load and be usable in the browser immediately after `npm install && npm run dev` with **no `.env` file at all**. Call this **local mode**. Adding real keys later upgrades the same app in place. This rule governs how the build resolves every keyed service, so apply it throughout:
+
+- **Core data (the app's main entities) persists in the browser via localStorage in local mode**, so all create/read/update/delete works with zero setup. Because localStorage is browser-only, the entity views and their data hooks are **Client Components (`"use client"`) in local mode** — a deliberate, sanctioned exception to the "Server Components by default" rule, for the data layer only. Put all localStorage access in Client Components only; the `typeof window !== "undefined"` guard is a belt-and-suspenders check for the `npm run build` prerender pass, **not** licence to read localStorage from a Server Component (that renders empty on the server and triggers a hydration mismatch).
+- **Route all data access through one client-side module** (e.g. `src/lib/data/<entity>.ts`, marked `"use client"`). It exposes CRUD functions and, inside, uses the **browser** Supabase client (`src/lib/supabase/client.ts`) when configured and localStorage otherwise — decided by the single `isSupabaseConfigured()` helper from `src/lib/supabase/config.ts` (created in 3d) — it returns true only when **both** `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are present **and non-empty** (a present-but-blank value, e.g. after `cp .env.example .env.local`, counts as not configured). The whole data layer is client-side — do **not** import the Supabase *server* client (`server.ts`, which uses `next/headers`) into this module, or it can't host the localStorage branch and the build breaks. The UI always calls the module; the module picks the backend. Never build two parallel data layers in the UI.
+- **Keyed services (auth, storage, AI, email, payments, maps, analytics, error monitoring, background jobs) are wired but inert in local mode — never faked, never crashing.** When the relevant key is absent, the feature renders a calm "connect {service} to enable this" state (or is hidden) instead of throwing, and it activates for real once the key is added. Do not simulate sign-in, payments, or sends — an inert, clearly-labelled control is correct; a fake success is not.
+- Still scaffold the Supabase client, the SQL migration, and each selected service's client/helpers (steps 3d onward) — they are the live path the moment their keys exist.
+
 ### 3a. Create the app directory
 
 - Derive a kebab-case directory name from the app name (e.g. "Helpdesk Buddy" → `helpdesk-buddy`). Strip non-alphanumeric chars.
@@ -143,7 +164,7 @@ Commit: `chore: scaffold next.js`
 
 ### 3c. Add shadcn/ui and base deps
 
-Run `npx shadcn@latest init` with `-d` (defaults) to set up shadcn non-interactively. Then add a baseline set of components: `button`, `card`, `input`, `label`, `dialog`, `form`, `sonner`, `dropdown-menu`, `avatar`, `badge`, `separator`. (Adding `form` pulls in `react-hook-form` and `zod` as transitive deps — confirm they land in `package.json`.)
+Run `npx shadcn@latest init` with `-d` (defaults) to set up shadcn non-interactively. Then add a baseline set of components: `button`, `card`, `input`, `label`, `dialog`, `sonner`, `dropdown-menu`, `avatar`, `badge`, `separator`. (`form` is intentionally omitted — it can silently no-op on Next 16; see the **Stack notes** section above. If you need a form later, install its deps directly with `npm install react-hook-form zod @hookform/resolvers`.)
 
 Install `date-fns` — nearly every app touches dates:
 
@@ -153,12 +174,17 @@ npm install date-fns
 
 Commit: `chore: add shadcn/ui and base deps`
 
+> **Local-mode contract for every service below (3d–3j).** Apply this in each section, not just here — you build these sections one at a time, so each must hold on its own. No service client may crash when its key is absent. Never construct an SDK client at module load with a missing or empty key (`new OpenAI({ apiKey })`, `new Stripe(...)`, a Mapbox token, etc. throw or misbehave on a blank value). Guard on the key, construct the client lazily inside the function that uses it, and when the key is absent render the inert "connect {service}" state (or no-op) the success criteria require.
+
 ### 3d. Add Supabase (always)
+
+Per the zero-config rule above, this is the **upgrade path**, not the live v1 data layer — the app's CRUD falls back to localStorage when no Supabase env vars are present.
 
 Install `@supabase/supabase-js` and `@supabase/ssr`. Create the standard Next.js App Router Supabase client setup:
 
+- `src/lib/supabase/config.ts` — exports `isSupabaseConfigured()`, returning true only when **both** `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are present and non-empty. The data module and every Supabase-dependent guard import this — do not re-implement the check inline.
 - `src/lib/supabase/client.ts` — browser client (for Client Components)
-- `src/lib/supabase/server.ts` — server client (for Server Components / Route Handlers / Server Actions, using `cookies()` from `next/headers`)
+- `src/lib/supabase/server.ts` — server client (using `cookies()` from `next/headers`) — reserved for auth and Route Handlers only; the entity data layer uses the browser client, not this
 
 Add to `.env.example`:
 ```
@@ -173,8 +199,8 @@ Commit: `chore: add supabase client`
 ### 3e. Supabase Auth (conditional on Q3)
 
 If selected:
-- Create `src/middleware.ts` with the standard Supabase auth middleware (refreshes session, protects routes)
-- Create `src/app/login/page.tsx` with a sign-in form (email magic link is the simplest default — no password needed)
+- Create `src/middleware.ts` with the standard Supabase auth middleware (refreshes session, protects routes). **Gate it on `isSupabaseConfigured()`: when Supabase env vars are absent (local mode), the middleware is a pass-through — construct no client, refresh nothing, redirect nothing.** It only refreshes sessions and protects routes once Supabase is configured. Otherwise it throws or bounces every page to `/login` with no `.env`, breaking the zero-config guarantee.
+- Create `src/app/login/page.tsx` with a sign-in form (email magic link is the simplest default — no password needed). In local mode it renders as an inert "connect Supabase to enable sign-in" state rather than attempting a magic link.
 - Create `src/app/auth/callback/route.ts` for the OAuth/magic link callback
 - Add a sign-out action somewhere reasonable (header dropdown)
 
@@ -184,6 +210,7 @@ Commit: `feat: add supabase auth`
 
 If selected:
 - Add `src/lib/supabase/storage.ts` with `uploadFile`, `getPublicUrl`, `deleteFile` helpers
+- In local mode (`isSupabaseConfigured()` false) the upload control renders inert/labelled ("connect Supabase to enable uploads") rather than throwing, and uploads for real once Supabase is configured
 - In README.md, add a note that a storage bucket needs to be created in the Supabase dashboard (give the bucket name you used in code)
 
 Commit: `feat: add supabase storage helpers`
@@ -196,7 +223,7 @@ Commit: `feat: add supabase storage helpers`
 | OpenAI | `openai` | `OPENAI_API_KEY` | `src/lib/ai/openai.ts` |
 | Gemini | `@google/generative-ai` | `GOOGLE_GENERATIVE_AI_API_KEY` | `src/lib/ai/gemini.ts` |
 
-Install the matching package, add the env var to `.env.example`, and create the client file with a configured client and a sample helper function (e.g. `generateText(prompt)`).
+Install the matching package, add the env var to `.env.example`, and create the client file with a sample helper function (e.g. `generateText(prompt)`). Construct the SDK client lazily inside the helper (not at module load), and where it surfaces in the UI render the inert "connect {provider}" state when the key is absent — build that state here, in this step, not only at criteria-check time (per the local-mode contract).
 
 Commit: `feat: add {provider} ai sdk`
 
@@ -204,7 +231,7 @@ Commit: `feat: add {provider} ai sdk`
 
 If selected:
 - Install `resend`, `react-email`, `@react-email/components`
-- Create `src/lib/email/resend.ts` with a configured client and a `sendEmail({ to, subject, react })` helper
+- Create `src/lib/email/resend.ts` with a `sendEmail({ to, subject, react })` helper that constructs the Resend client lazily and becomes a labelled no-op (logs and returns) when `RESEND_API_KEY` is absent — never throw at the call site in local mode
 - Create `src/emails/welcome.tsx` as a sample React Email template
 - Add `RESEND_API_KEY=` and `RESEND_FROM_EMAIL=onboarding@resend.dev` to `.env.example`
 
@@ -231,31 +258,31 @@ For each tool matched in Phase 1.5, install and configure it. Skip any that were
 
 **Stripe** — payments
 - Install: `npm install stripe @stripe/stripe-js`
-- Create `src/lib/stripe/server.ts` (server client) and `src/lib/stripe/client.ts` (`loadStripe` helper)
-- Create `src/app/api/checkout/route.ts` that creates a Checkout session
-- Create `src/app/api/stripe/webhook/route.ts` with signature verification and an event-switch skeleton
-- Add a Buy/Checkout button to a sensible UI surface
+- Create `src/lib/stripe/server.ts` and `src/lib/stripe/client.ts` (`loadStripe` helper). Construct the Stripe server client lazily inside the functions that use it, never at module load — an empty `STRIPE_SECRET_KEY` makes `new Stripe()` throw and would break the build's route-collection pass
+- Create `src/app/api/checkout/route.ts` that creates a Checkout session (also construct the client lazily inside the handler)
+- Create `src/app/api/stripe/webhook/route.ts` with signature verification and an event-switch skeleton (construct the Stripe server client lazily inside the handler, never at module top-level, so the build's route-collection pass doesn't instantiate it without keys)
+- Add a Buy/Checkout button to a sensible UI surface; when Stripe keys are absent it renders inert/labelled ("connect Stripe to enable checkout") rather than erroring. Construct the Stripe client lazily, never at module load
 - Add to `.env.example`: `STRIPE_SECRET_KEY=`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=`, `STRIPE_WEBHOOK_SECRET=`
 - Commit: `feat: add stripe for payments`
 
 **PostHog** — analytics
 - Install: `npm install posthog-js posthog-node`
 - Create `src/lib/posthog/client.ts` (browser) and `src/lib/posthog/server.ts` (server)
-- Wire a PostHog provider into the root layout so page views are auto-captured
-- Fire at least one custom event from the app (e.g. on signup or on a key action)
+- Wire a PostHog provider into the root layout so page views are auto-captured. The provider is a `"use client"` component that **skips `posthog.init()` entirely when `NEXT_PUBLIC_POSTHOG_KEY` is absent** (returns children unwrapped) — in local mode it fires no events and logs no errors
+- Fire at least one custom event from the app (e.g. on signup or on a key action), guarded so it is a no-op when the key is absent
 - Add to `.env.example`: `NEXT_PUBLIC_POSTHOG_KEY=`, `NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com`
 - Commit: `feat: add posthog analytics`
 
 **Sentry** — error monitoring
 - Install: `npm install @sentry/nextjs`
-- Create `sentry.client.config.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts` reading DSN from env
-- Wrap `next.config.ts` export with `withSentryConfig`
+- Create `sentry.client.config.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts` reading DSN from env; `Sentry.init` no-ops cleanly when `NEXT_PUBLIC_SENTRY_DSN` is absent (an empty DSN disables Sentry)
+- Wrap `next.config.ts` export with `withSentryConfig`, configured to **disable source-map upload when `SENTRY_AUTH_TOKEN` is absent** so `npm run build` exits 0 with no `.env` present (no upload attempt, no build error)
 - Add to `.env.example`: `NEXT_PUBLIC_SENTRY_DSN=` and `SENTRY_AUTH_TOKEN=`
 - Commit: `feat: add sentry for error monitoring`
 
 **Mapbox** — maps
 - Install: `npm install mapbox-gl react-map-gl`
-- Create `src/components/Map.tsx` as a reusable Client Component wrapping `react-map-gl` with a sensible default centre and zoom
+- Create `src/components/Map.tsx` as a reusable Client Component wrapping `react-map-gl` with a sensible default centre and zoom; when `NEXT_PUBLIC_MAPBOX_TOKEN` is absent it renders a labelled placeholder instead of a broken/crashing map
 - Use the Map component in at least one UI surface
 - Add to `.env.example`: `NEXT_PUBLIC_MAPBOX_TOKEN=`
 - Commit: `feat: add mapbox for maps`
@@ -271,8 +298,8 @@ For each tool matched in Phase 1.5, install and configure it. Skip any that were
 
 Generate `README.md` with:
 - App name and description (from Q2)
-- **Quick start**: copy `.env.example` to `.env.local`, fill in values, `npm install`, `npm run dev`
-- **Services to set up**: for each selected service, a one-line description of what to do (e.g. "Supabase: create a project at https://supabase.com/dashboard, copy the URL and anon key into `.env.local`"). Include only the services the user opted into.
+- **Quick start**: `npm install`, then `npm run dev` — the app runs in local mode with no configuration. Note that data is stored in the browser until real services are connected.
+- **Connect real services later (optional)**: copy `.env.example` to `.env.local` and fill in values to switch from local mode to live services. For each selected service, a one-line description of what to do (e.g. "Supabase: create a project at https://supabase.com/dashboard, copy the URL and anon key into `.env.local`"). Include only the services the user opted into.
 - **Deploy**: a short note that Vercel is the recommended deployment target, with a link to https://vercel.com/new
 
 Commit: `docs: add readme`
@@ -285,23 +312,25 @@ Now use Q2 (description) and Q8 (notes) to build the user's actual feature.
 
 #### Success criteria for v1 (all must hold)
 
+For any criterion gated on an external key or service (auth, storage, AI, email, payments, maps, analytics, error monitoring, background jobs), the **local-mode bar** applies: the feature must be wired and render without crashing when its key is absent, and work for real once the key is added. "Wired but inert" passes; a live round-trip is not required to ship v1 (see the local-mode rule at the top of Phase 3).
+
 1. `npx tsc --noEmit` passes with no type errors
 2. `npm run build` exits 0 with no errors
 3. The home page (`src/app/page.tsx`) is replaced with something that reflects the user's app, not the default Next.js placeholder
-4. The core user journey from Q2 is implemented end-to-end. Identify 1-3 core entities from Q2 and create: a list view, create/edit, and detail view for the primary one
+4. The core user journey from Q2 is implemented end-to-end. Identify 1-3 core entities from Q2 and create: a list view, create/edit, and detail view for the primary one. Core data works in local mode via localStorage and switches to Supabase only when `isSupabaseConfigured()` is true (both URL and anon key present and non-empty)
 5. Database tables for the core entities are defined in `supabase/migrations/0001_initial.sql` (Postgres DDL — they don't need to be applied; the file is the source of truth)
-6. If auth was selected: a user can reach `/login`, sign in via magic link, and protected pages redirect to `/login` when unauthenticated
-7. If storage was selected: at least one place in the UI uses the upload helper
-8. If AI was selected: at least one place in the UI uses the AI client (e.g. a "summarise" or "generate" button)
-9. If email was selected: at least one place in the flow calls `sendEmail` (e.g. welcome email triggered on first sign-in, or notification on a key action)
+6. If auth was selected: `/login` and the session middleware exist and render without error in local mode; once Supabase is configured, a user can sign in via magic link and protected pages redirect to `/login` when unauthenticated
+7. If storage was selected: at least one place in the UI uses the upload helper; with no Supabase configured the upload control is inert/labelled rather than throwing, and uploads for real once Supabase is configured
+8. If AI was selected: at least one UI surface wires the AI client (e.g. a "summarise" or "generate" button); with no API key it shows an inert "connect {provider}" state, and calls the client for real once the key is set
+9. If email was selected: at least one place in the flow calls `sendEmail` (e.g. welcome email on first sign-in, or a notification on a key action); with no key the call path is a labelled no-op, not a crash
 10. If charts were selected: at least one chart view exists with realistic-looking data (even if mocked)
-11. If Trigger.dev was selected: at least one task is defined in `src/trigger/` and referenced or invoked from somewhere in the app
-12. If Stripe was selected: a Checkout flow exists end-to-end (button → API route → Stripe session) and the webhook handler skeleton is in place
-13. If PostHog was selected: PostHog is initialized in the root layout, page views are auto-captured, and at least one custom event is fired
-14. If Sentry was selected: Sentry is configured in all three config files and initializes without errors at app boot
-15. If Mapbox was selected: at least one map view renders in the UI with a sensible default centre and zoom
+11. If Trigger.dev was selected: at least one task is defined in `src/trigger/` and referenced or invoked from somewhere in the app; with no `TRIGGER_SECRET_KEY` the invocation path is a labelled no-op rather than a crash
+12. If Stripe was selected: a Checkout flow is wired (button → API route → Stripe session) and the webhook handler skeleton is in place; with no Stripe keys the checkout entry point is inert/labelled rather than erroring
+13. If PostHog was selected: PostHog is initialized in the root layout, page views are auto-captured, and at least one custom event is fired (and it no-ops cleanly when the key is absent)
+14. If Sentry was selected: Sentry is configured in all three config files and initializes without errors at app boot (and no-ops cleanly when the DSN is absent)
+15. If Mapbox was selected: a map view renders when a token is present, and shows a placeholder (not a crash) when the token is absent
 16. If @react-pdf/renderer was selected: a PDF generation route exists and a "download" entry point is wired up in the UI
-17. The dev server (`npm run dev`) starts without errors
+17. The dev server (`npm run dev`) starts and the home page renders in the browser with **no runtime errors and no `.env` file present** (the app runs in local mode with zero environment variables)
 
 #### Iteration loop
 
@@ -323,12 +352,11 @@ When the build is done, tell the user:
 
 To start it:
   cd {dir}
-  cp .env.example .env.local
-  # Fill in the values (see README for which accounts to create)
   npm install
   npm run dev
 
-Open http://localhost:3000 to see it.
+Open http://localhost:3000 to see it. It runs right away — no setup needed.
+{if any keyed service was selected, add a line: "When you're ready to connect real services (sign-in, AI, email, etc.), see the README."}
 
 What's built:
   - {one-liner per feature, max 5}
@@ -346,7 +374,7 @@ Keep this final message short and encouraging. Don't list every file you created
 - **All API keys go in `.env.example` as empty placeholders.** Never use real keys, never test live API calls during scaffolding.
 - **Always App Router**, never Pages Router.
 - **Server Components by default**, Client Components only when interactivity requires it.
-- **Server Actions** for form submissions where possible.
+- **Server Actions** for form submissions where possible — **except the core entity CRUD forms**, which use Client Component handlers calling the client-side data module (the local-mode data layer is client-only; a Server Action can't read or write localStorage). Reserve Server Actions for flows that don't touch the local data layer.
 - **Conventional commit messages**, atomic commits, no commits that leave the build broken (run a quick `tsc --noEmit` check before committing where reasonable).
 - **Stick to the chosen stack — do not add tools beyond what Q3–Q8 selected.** This is a one-day build.
 - **If the user pushes back during the build phase** ("actually I want X instead"), incorporate the change and continue. Don't restart.

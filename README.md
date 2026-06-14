@@ -10,8 +10,12 @@ It asks the builder eight short questions, then silently sets up the project and
 
 ## Installation
 
+> **Heads-up for the Claude desktop app:** as of mid-2026 the in-app `/plugin` command is **not available** in the desktop app — typing it returns *"/plugin isn't available in this environment."* You cannot install from inside the desktop app. Install once from a terminal (it writes to the shared `~/.claude/plugins` config the desktop app reads), then **restart the desktop app** so `/wellcome:create-app` appears. The `/plugin …` slash commands below only work in the **terminal** Claude Code interactive session.
+
+**In the terminal Claude Code session:**
+
 ```bash
-# From GitHub (once published):
+# From GitHub:
 /plugin marketplace add wellcome-ai/marketplace
 
 # Or locally for development:
@@ -21,7 +25,16 @@ It asks the builder eight short questions, then silently sets up the project and
 /plugin install wellcome@wellcome-ai
 ```
 
-To use it, run in an empty directory:
+**Prepping machines non-interactively (e.g. build-day setup)** — run the same thing via the `claude` CLI binary in a shell, no interactive session needed:
+
+```bash
+claude plugin marketplace add wellcome-ai/marketplace
+claude plugin install wellcome@wellcome-ai
+```
+
+The repo is public, so no GitHub authentication is required for the install.
+
+After installing, **restart the Claude desktop app**, then run in an empty directory:
 
 ```bash
 /wellcome:create-app
@@ -77,3 +90,7 @@ Workshop participants who:
 - Have one day to ship something working
 
 If you're a working developer, you probably want to pick your own stack — this plugin's whole point is to take that choice away.
+
+## Running a build day?
+
+If you're the facilitator setting up a room of machines, see [`docs/build-day-setup.md`](docs/build-day-setup.md) for the per-machine prep checklist and what to tell participants on the day.
