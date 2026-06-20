@@ -10,7 +10,15 @@ It asks the builder eight short questions, then silently sets up the project and
 
 ## Installation
 
-> **Heads-up for the Claude desktop app:** as of mid-2026 the in-app `/plugin` command is **not available** in the desktop app — typing it returns *"/plugin isn't available in this environment."* You cannot install from inside the desktop app. Install once from a terminal (it writes to the shared `~/.claude/plugins` config the desktop app reads), then **restart the desktop app** so `/wellcome:create-app` appears. The `/plugin …` slash commands below only work in the **terminal** Claude Code interactive session.
+> **Heads-up for the Claude desktop app:** as of mid-2026 the in-app `/plugin` slash command is **not available** in the desktop app — typing it returns *"/plugin isn't available in this environment."* Install through the **Customize** menu instead (steps just below). The `/plugin …` slash commands further down only work in the **terminal** Claude Code interactive session.
+
+**In the Claude desktop app (recommended for participants):**
+
+1. Open **Customize**.
+2. Under **Personal Plugins**, choose the **+**.
+3. Select **+ Create Plugin** → **Add marketplace** → **Add from a repository**.
+4. Enter the repository URL: `https://github.com/wellcome-ai/marketplace`
+5. Once the marketplace is added, install the **wellcome** plugin from it.
 
 **In the terminal Claude Code session:**
 
