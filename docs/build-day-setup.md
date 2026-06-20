@@ -4,7 +4,7 @@
 
 ## Why pre-setup is required
 
-As of mid-2026 the Claude **desktop app does not support the `/plugin` command** — typing it returns *"/plugin isn't available in this environment."* So participants can't install the plugin from inside the app. You pre-install it from a terminal (which writes to the shared `~/.claude/plugins` config the desktop app reads), and the command then appears in the desktop app after a restart. The marketplace repo is public, so no GitHub login is needed.
+As of mid-2026 the Claude **desktop app does not support the `/plugin` slash command** — typing it returns *"/plugin isn't available in this environment."* The plugin *can* be installed from inside the desktop app via the **Customize** menu (see option B below), but for a room of non-technical participants you don't want them clicking through setup and waiting on downloads during the session. Pre-install on each machine ahead of time — from a terminal (which writes to the shared `~/.claude/plugins` config the desktop app reads) or through the Customize menu — and the command is ready the moment they sit down. The marketplace repo is public, so no GitHub login is needed.
 
 Do this ahead of time on each machine — not live during the session. About 5 minutes per machine.
 
@@ -21,7 +21,11 @@ claude --version  # the terminal Claude Code CLI must be installed
 
 If Node is missing or below 20.9, install Node 22 LTS or newer (the stack is validated on 24.x; below 22 is untested). If `claude` is missing, install the Claude Code CLI first.
 
-### 2. Install the plugin (terminal)
+### 2. Install the plugin
+
+Use whichever is faster for you. The terminal route scripts cleanly across many machines; the Customize route is all-GUI if you'd rather not touch a terminal.
+
+**Option A — terminal**
 
 ```bash
 claude plugin marketplace add wellcome-ai/marketplace
@@ -29,6 +33,14 @@ claude plugin install wellcome@wellcome-ai
 ```
 
 Expect `✔ Successfully added marketplace: wellcome-ai` and `✔ Successfully installed plugin: wellcome@wellcome-ai`.
+
+**Option B — Customize menu (in the desktop app)**
+
+1. Open **Customize**.
+2. Under **Personal Plugins**, choose the **+**.
+3. Select **+ Create Plugin** → **Add marketplace** → **Add from a repository**.
+4. Enter the repository URL: `https://github.com/wellcome-ai/marketplace`
+5. Once the marketplace is added, install the **wellcome** plugin from it.
 
 ### 3. Restart the Claude desktop app
 
