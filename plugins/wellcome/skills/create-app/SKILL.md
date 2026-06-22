@@ -345,7 +345,7 @@ Work through the criteria in order. After each meaningful change, commit with a 
 
 ### 3m. Final report
 
-When the build is done, tell the user the message below verbatim. The "Local:" wording matters: a user who built an earlier app today will have it running on 3000, so this one binds 3001+ — pointing them at the address `npm run dev` prints, rather than a hardcoded 3000, is what lets them open the right project.
+When the build is done, tell the user the message below, substituting the placeholders (`{name}`, `{dir}`, and the `{if any keyed service…}` conditional). Keep the "Local:" wording as written: a user who built an earlier app today will have it running on 3000, so this one binds 3001+, and pointing them at the address `npm run dev` prints, rather than a hardcoded 3000, is what lets them open the right project.
 
 ```
 ✓ "{name}" is ready to run.
