@@ -53,7 +53,7 @@ The skill body is the actual product. When editing it, preserve these:
    - **Phase 1 (Intake, Q1–Q8)**: Q1/Q2/Q8 are free-text plain conversation; Q3–Q7 use `AskUserQuestion`.
    - **Phase 1.5 (Q8 intent parsing)**: a keyword table maps free-text Q8 mentions to auto-installed tools. **This is the extension surface** — to add a new auto-detected tool, add a row to the table AND a conditional install block in step 3j, AND a success criterion in step 3l.
    - **Phase 2 (Confirm)**: summary + go-ahead.
-   - **Phase 3 (Build)**: scaffold (3a–3c) → conditional services (3d–3j) → README (3k) → autonomous app build (3l) against numbered success criteria → final report (3m).
+   - **Phase 3 (Build)**: scaffold (3a–3c) → conditional services (3d–3j) → README (3k) → autonomous app build (3l) against numbered success criteria → launch the app, open it in the browser, and report (3m).
 
 3. **Git is silent.** Every phase commits, but Claude never narrates it. Preserve "Never mention git" when adding steps.
 
