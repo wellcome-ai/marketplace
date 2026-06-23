@@ -8,13 +8,13 @@
     {
       "name": "wellcome",
       "source": "./plugins/wellcome",
-      "description": "Scaffold and build an app via a guided Q&A, with all technical decisions pre-made. Designed for non-technical users on accelerated build days.",
-      "version": "0.2.1",
+      "description": "Scaffold and build an app via a guided Q&A, then publish it online — all technical decisions pre-made. Designed for non-technical users on accelerated build days.",
+      "version": "0.3.0",
       "author": {
         "name": "Richard Bremner"
       },
       "category": "scaffolding",
-      "tags": ["build-day", "scaffolding", "nextjs", "supabase", "non-technical"]
+      "tags": ["build-day", "scaffolding", "nextjs", "supabase", "vercel", "deploy", "non-technical"]
     }
   ]
 }
