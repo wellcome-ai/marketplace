@@ -351,16 +351,18 @@ Work through the criteria in order. After each meaningful change, commit with a 
 
 The build is completely finished now (no more `npm run build` will run), so it's safe to leave a dev server up. Don't hand the user terminal commands to run; put the working app in front of them, then report.
 
-1. **Start the app in the background.** Run `npm run dev` in the background **with its output captured where you can read it** (the run-in-background mechanism, or redirect to a temp log: `npm run dev > /tmp/dev-server.log 2>&1 &`). **Wait for its `Local:` line to appear** — it shows a second or two after launch, so don't read the URL before it's there — and take the URL from that exact line. **If it hasn't appeared after ~30 seconds, or the output shows a startup error, treat the launch as failed and use the fallback message (step 3) — don't wait on it indefinitely.** Then confirm it's actually serving: `curl -s -o /dev/null -L -w "%{http_code}" <url>` (the `-L` follows a routine 307/308 redirect through to the real status) and expect `200`. Use the exact URL it printed — never a hardcoded `http://localhost:3000`; a user who built an earlier app today has that one on 3000, so this binds 3001+.
-2. **Open it in their browser.** Open their default browser to that exact `Local:` URL so the app is on screen the moment you finish — on macOS run `open <url>` (build days run on Macs; elsewhere it's `xdg-open <url>` on Linux or `start <url>` on Windows). Don't make the user copy-paste a URL.
-3. **Decide which message to show.** **Only if step 1 confirmed a `200`** show the celebratory "it's live" message below. If the server wouldn't start or didn't serve a 200, do **not** claim it's live — use the fallback message instead (further down). Either way the real `Local:` URL is printed prominently, so even if the browser didn't visibly open (a locked-down machine), the user can click it.
+1. **Start the app in the background and check it's serving.** Run `npm run dev` in the background **with its output captured where you can read it** (the run-in-background mechanism, or redirect to a temp log: `npm run dev > /tmp/dev-server.log 2>&1 &`). **Wait for its `Local:` line to appear** — it shows a second or two after launch, so don't read the URL before it's there — and take the URL from that exact line. Then confirm it's actually serving: `curl -s -o /dev/null -L -w "%{http_code}" <url>` (the `-L` follows a routine 307/308 redirect through to the real status) and expect `200`. Use the exact URL it printed — never a hardcoded `http://localhost:3000`; a user who built an earlier app today has that one on 3000, so this binds 3001+.
+
+   **If the launch failed** — no `Local:` line within ~30 seconds, a startup error in the output, or a curl result that isn't `200` — stop here: **don't open a browser** (there's nothing serving to show, and the URL may not even exist) and **go straight to the fallback message** below. Don't claim it's live.
+2. **Only if step 1 got a `200`, open it in their browser.** Open their default browser to that exact `Local:` URL so the app is on screen the moment you finish — on macOS run `open <url>` (build days run on Macs; elsewhere it's `xdg-open <url>` on Linux or `start <url>` on Windows). Don't make the user copy-paste a URL.
+3. **Show the message.** If step 1 confirmed a `200`, show the celebratory "it's live" message below; otherwise show the fallback message. In the live message the real `Local:` URL is printed prominently, so even if the browser didn't visibly pop up (a locked-down machine), the user can still click it.
 
 The server keeps running for the rest of this session, so the app stays live while they explore it. It won't run forever — it stops when they close things down — which is why the generated README (step 3k) carries the `npm run dev` restart for next time, and the message ends with a one-line pointer to it.
 
 **If the server is live (200 confirmed):**
 
 ```
-🎉 "{name}" is live! I've opened it in your browser — here's the link:
+🎉 "{name}" is live! I've opened it in your browser — if it didn't pop up, just click here:
 
   {url}
 
