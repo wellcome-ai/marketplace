@@ -13,7 +13,7 @@ Same stance as the build skill: **make the technical decisions yourself, don't a
 
 - Run the checks, the login, and the deploy yourself. Don't narrate each command.
 - If a step fails, read the error, try a fix, retry. Only surface a failure when you've exhausted reasonable options — and then in plain English, not a stack trace.
-- The user only has to do **one** thing themselves: approve the Vercel login in their browser (you cannot click that for them). Everything else is yours.
+- In the normal flow the user only has to do **one** thing themselves: approve the Vercel login in their browser (you cannot click that for them). Everything else is yours.
 - Never ask "should I…?" — just do it. Never offer choices on project name, region, framework settings, or deploy flags.
 - Be encouraging and brief. Avoid jargon. No walls of text.
 - Never mention git, commits, or branches unless they ask. Git is plumbing — keep it invisible.
@@ -48,18 +48,21 @@ Check the current directory is a Next.js app built by the build skill:
 - A `package.json` exists and lists `next` in its dependencies.
 - A `next.config.ts` (or `next.config.js`) exists.
 
-If the current directory is **not** an app (e.g. it's the empty folder they ran the build from, with the app in a subdirectory), look for a single obvious app subdirectory and `cd` into it. If there are several and it's ambiguous which one they mean, ask one plain question: "Which app do you want to publish?" and list the folder names. This is the rare case where you must ask — you need a value only they have.
+If the current directory is **not** an app (e.g. it's the empty folder they ran the build from, with the app in a subdirectory), look for a single obvious app subdirectory and `cd` into it — and say which one in one short line ("Publishing **{folder}**…"), so a wrong guess is caught before you deploy. If there are several and it's ambiguous which one they mean, ask one plain question: "Which app do you want to publish?" and list the folder names. This is the rare case where you must ask — you need a value only they have.
 
 ### 1b. Confirm the build is healthy
 
-Run a production build and confirm it succeeds:
+First make sure dependencies are installed, then run a production build:
 
 ```bash
+npm install
 npm run build
 ```
 
-- If it exits 0 → continue.
-- If it fails → read the error, fix it, and re-run, the same way the build skill does. A broken build deployed is worse than no deploy — Vercel would either fail the remote build or ship a broken page. Do not move past this step until `npm run build` is green. If you genuinely cannot fix it after reasonable attempts, stop and tell the user in plain English what's wrong and that you didn't publish, rather than deploying something broken.
+`npm install` is idempotent — quick if everything's already there, essential if it isn't. A fresh session or a reset machine won't have `node_modules` (it's never committed), so run it first; otherwise a missing-dependency error masquerades as a broken build.
+
+- If `npm run build` exits 0 → continue.
+- If it fails → read the error and fix it the same way the build skill does. **If the error is about missing modules or `next: command not found`, the fix is simply `npm install` — not a code change**, so don't thrash trying to "fix" the app. A broken build deployed is worse than no deploy, so do not move past this step until `npm run build` is green. If you genuinely cannot fix it after reasonable attempts, stop and tell the user in plain English what's wrong and that you didn't publish, rather than deploying something broken.
 
 Don't narrate this step beyond a brief "Checking your app builds cleanly…".
 
@@ -67,7 +70,7 @@ Don't narrate this step beyond a brief "Checking your app builds cleanly…".
 
 ## Step 2 — Connect Vercel (the one interactive step)
 
-The app deploys to the **user's own** Vercel account, so they have to sign in once. First check whether they're already signed in:
+The app deploys to the **user's own** Vercel account, so they have to sign in once. First check whether they're already signed in (the first `npx vercel …` you run may download the Vercel CLI on the way — that's expected, let it finish):
 
 ```bash
 npx vercel whoami
@@ -122,7 +125,8 @@ curl -s -o /dev/null -w "%{http_code}" <the exact Aliased URL from the output>
 ```
 
 - **200** → it's live. Report it.
-- **Anything else (a 401, or a 302 to a Vercel login page)** → the deploy itself worked, but Vercel's **Deployment Protection** (also called **Vercel Authentication**) is gating the link, so visitors are asked to log in. This is uncommon on a fresh free account, and it's an account-level setting you can't flip from here on the user's behalf. So be honest: tell them the app deployed fine but Vercel is currently keeping it private, and point them to turn off **Deployment Protection / Vercel Authentication** for this project in their Vercel dashboard's project **Settings**, then run `/wellcome:publish-app` again to re-check. Don't report a login-walled link as "shareable" — it isn't until protection is off.
+- **A redirect to a Vercel login page (a 302 to `vercel.com/login`, or a 401)** → the deploy worked, but Vercel's **Deployment Protection** (a.k.a. **Vercel Authentication**) is gating the link, so visitors are asked to log in. This is uncommon on a fresh free account, and it's an account-level setting you can't flip from here on the user's behalf. So be honest: tell them the app deployed fine but Vercel is currently keeping it private, and point them to turn off **Deployment Protection / Vercel Authentication** for this project in their Vercel dashboard's project **Settings**, then run `/wellcome:publish-app` again to re-check. Don't report a login-walled link as "shareable" — it isn't until protection is off.
+- **Any other non-200 (a 500, a generic 404, or a connection error right after deploying)** → don't assume protection. A just-finished deploy can take a few seconds to start serving, so wait a moment and curl the same URL once more. If it's still failing, this is an app problem, not a Vercel setting — read what the page or `npx vercel logs <url>` says, fix it the way the build skill would, and re-deploy. Never send the user to the protection toggle for an error that isn't about protection.
 
 If the deploy itself errors, read the message, fix what you can (a missing build output, a transient network error → retry), and only surface it if you're truly stuck.
 
