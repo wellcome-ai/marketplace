@@ -4,9 +4,12 @@ A Claude Code marketplace for accelerated build days — guide non-technical bui
 
 ## What's in here
 
-One plugin: **`wellcome`**, providing the `/wellcome:create-app` command.
+One plugin: **`wellcome`**, providing two commands:
 
-It asks the builder eight short questions, then silently sets up the project and iteratively builds their app to a working v1. Every technical decision (framework, package manager, database, file structure, deploy target) is pre-made so the builder can focus on *what* they want, not *how* to set it up.
+- **`/wellcome:create-app`** — asks eight short questions, then silently sets up the project and iteratively builds the app to a working v1.
+- **`/wellcome:publish-app`** — puts a finished app online under the builder's own free Vercel account and hands back a shareable link.
+
+Every technical decision (framework, package manager, database, file structure, deploy target) is pre-made so the builder can focus on *what* they want, not *how* to set it up.
 
 ## Installation
 
@@ -47,6 +50,8 @@ After installing, **restart the Claude desktop app**, then run in an empty direc
 ```bash
 /wellcome:create-app
 ```
+
+When the app is built and you want it online, run `/wellcome:publish-app` from inside the app folder — it deploys to your own free Vercel account (one browser sign-in) and gives you a public link to share.
 
 ## What `/wellcome:create-app` asks
 
