@@ -53,7 +53,7 @@ The skill body is the actual product. When editing it, preserve these:
    - **Phase 1 (Intake, Q1–Q8)**: Q1/Q2/Q8 are free-text plain conversation; Q3–Q7 use `AskUserQuestion`.
    - **Phase 1.5 (Q8 intent parsing)**: a keyword table maps free-text Q8 mentions to auto-installed tools. **This is the extension surface** — to add a new auto-detected tool, add a row to the table AND a conditional install block in step 3j, AND a success criterion in step 3l.
    - **Phase 2 (Confirm)**: summary + go-ahead.
-   - **Phase 3 (Build)**: scaffold (3a–3c) → conditional services (3d–3j) → README (3k) → autonomous app build (3l) against numbered success criteria → final report (3m).
+   - **Phase 3 (Build)**: scaffold (3a–3c) → conditional services (3d–3j) → README (3k) → autonomous app build (3l) against numbered success criteria → launch the app, open it in the browser, and report (3m).
 
 3. **Git is silent.** Every phase commits, but Claude never narrates it. Preserve "Never mention git" when adding steps.
 
@@ -61,7 +61,7 @@ The skill body is the actual product. When editing it, preserve these:
 
 5. **Stack lock-ins** (don't change without strong reason): Node + npm (not Bun, not pnpm — broadest AI training coverage); Next.js App Router only; Server Components by default; conventional commit messages.
 
-When inserting a step in Phase 3, the section letters (3a–3m) cascade. The "Stop conditions" block has an in-document reference to `3m` (the final report) that must update if Phase 3 grows.
+When inserting a step in Phase 3, the section letters (3a–3m) cascade. The "Stop conditions" block has an in-document reference to `3m` (now "launch the app, open it, and report") that must update if Phase 3 grows.
 
 ## Testing changes locally
 

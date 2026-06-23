@@ -300,7 +300,7 @@ For each tool matched in Phase 1.5, install and configure it. Skip any that were
 
 Generate `README.md` with:
 - App name and description (from Q2)
-- **Quick start**: `npm install`, then `npm run dev`, then open the address it prints on the `Local:` line (usually http://localhost:3000, or the next free port like http://localhost:3001 if another app is already running). The app runs in local mode with no configuration. Note that data is stored in the browser until real services are connected.
+- **Quick start (and how to restart it later)**: `npm install`, then `npm run dev`, then open the address it prints on the `Local:` line (usually http://localhost:3000, or the next free port like http://localhost:3001 if another app is already running). This is also how you bring the app back up any time after it's been closed. The app runs in local mode with no configuration. Note that data is stored in the browser until real services are connected.
 - **View on another device (optional)**: to open the app from your phone or another computer on the same network, note the `Network:` address `npm run dev` prints, add that IP to `allowedDevOrigins` in `next.config.ts`, and restart `npm run dev`.
 - **Connect real services later (optional)**: copy `.env.example` to `.env.local` and fill in values to switch from local mode to live services. For each selected service, a one-line description of what to do (e.g. "Supabase: create a project at https://supabase.com/dashboard, copy the URL and anon key into `.env.local`"). Include only the services the user opted into.
 - **Deploy**: a short note that Vercel is the recommended deployment target, with a link to https://vercel.com/new
@@ -333,7 +333,7 @@ For any criterion gated on an external key or service (auth, storage, AI, email,
 14. If Sentry was selected: Sentry is configured in all three config files and initializes without errors at app boot (and no-ops cleanly when the DSN is absent)
 15. If Mapbox was selected: a map view renders when a token is present, and shows a placeholder (not a crash) when the token is absent
 16. If @react-pdf/renderer was selected: a PDF generation route exists and a "download" entry point is wired up in the UI
-17. The dev server (`npm run dev`) starts and the home page renders in the browser with **no runtime errors and no `.env` file present** (the app runs in local mode with zero environment variables). Note the actual URL it prints on its `Local:` line: if port 3000 is already in use — e.g. by another app the user built earlier in the day — Next.js binds the next free port (3001, 3002, …). Use whatever it actually printed. Never assume 3000, and never kill or stop whatever already holds 3000 (it may be an unrelated app on the user's machine)
+17. The dev server (`npm run dev`) starts and the home page renders with **no runtime errors and no `.env` file present** (the app runs in local mode with zero environment variables). **Run it as a background process to check this** (never in the foreground, which would block you), and **stop it again before you run `npm run build` anywhere** — a live dev server and a build both write to `.next` and will collide. The server the user actually keeps gets started fresh in step 3m, once the build is completely finished, so don't worry about leaving one running here. Note the actual URL it prints on its `Local:` line: if port 3000 is already in use — e.g. by another app the user built earlier in the day — Next.js binds the next free port (3001, 3002, …). Use whatever it actually printed. Never assume 3000, and never kill or stop whatever already holds 3000 (it may be an unrelated app on the user's machine)
 18. `next.config.ts` sets `allowedDevOrigins: ["localhost", "127.0.0.1"]`, so the app also loads when opened via `http://127.0.0.1:<port>`, not only `localhost` — without it, Next 16 blocks its own dev resources cross-origin and the page hangs on "Loading…" with no visible error
 
 #### Iteration loop
@@ -342,24 +342,31 @@ Work through the criteria in order. After each meaningful change, commit with a 
 
 #### Stop conditions
 
-- **All success criteria hold** → stop. Run `git log --oneline | head -30` mentally to confirm a clean history, then go to step 3m (final report).
+- **All success criteria hold** → stop. Run `git log --oneline | head -30` mentally to confirm a clean history, then go to step 3m (launch the app, open it, and give the final report).
 - **You've made ~30 commits and still don't have all criteria green** → stop. Report what is done, what is not, and the next 2-3 things you would do next.
 - **The same error has recurred 3 times despite different fix attempts** → stop. Surface it as a specific question to the user.
 - **You are blocked needing a creative decision from the user** → ask one specific question and wait.
 
-### 3m. Final report
+### 3m. Launch the app, open it, and report
 
-When the build is done, tell the user the message below, substituting the placeholders (`{name}`, `{dir}`, and the `{if any keyed service…}` conditional). Keep the "Local:" wording as written: a user who built an earlier app today will have it running on 3000, so this one binds 3001+, and pointing them at the address `npm run dev` prints, rather than a hardcoded 3000, is what lets them open the right project.
+The build is completely finished now (no more `npm run build` will run), so it's safe to leave a dev server up. Don't hand the user terminal commands to run; put the working app in front of them, then report.
+
+1. **Start the app in the background and check it's serving.** Run `npm run dev` in the background **with its output captured where you can read it** (the run-in-background mechanism, or redirect to a temp log: `npm run dev > /tmp/dev-server.log 2>&1 &`). **Wait for its `Local:` line to appear** — it shows a second or two after launch, so don't read the URL before it's there — and take the URL from that exact line. Then confirm it's actually serving, with a bounded request so a stalled server can't hang you: `curl -s -o /dev/null -L --connect-timeout 3 --max-time 20 -w "%{http_code}" <url>` (the `-L` follows a routine 307/308 redirect through to the real status; a timeout or refused connection prints `000`). The generous `--max-time 20` leaves room for Next's lazy first-request compile on a loaded build-day machine — this curl is the cold first hit, so don't set it tight. Expect `200` — anything else, including `000`, counts as not-live and routes to the fallback. Use the exact URL it printed — never a hardcoded `http://localhost:3000`; a user who built an earlier app today has that one on 3000, so this binds 3001+.
+
+   **If the launch failed** — no `Local:` line within ~30 seconds, a startup error in the output, or a curl result that isn't `200` — stop here: **don't open a browser** (there's nothing serving to show, and the URL may not even exist) and **go straight to the fallback message** below. Don't claim it's live.
+2. **Only if step 1 got a `200`, open it in their browser.** Open their default browser to that exact `Local:` URL so the app is on screen the moment you finish — on macOS run `open <url>` (build days run on Macs; elsewhere it's `xdg-open <url>` on Linux or `start <url>` on Windows). Don't make the user copy-paste a URL.
+3. **Show the message.** If step 1 confirmed a `200`, show the celebratory "it's live" message below; otherwise show the fallback message. In the live message the real `Local:` URL is printed prominently, so even if the browser didn't visibly pop up (a locked-down machine), the user can still click it.
+
+The server keeps running for the rest of this session, so the app stays live while they explore it. It won't run forever — it stops when they close things down — which is why the generated README (step 3k) carries the `npm run dev` restart for next time, and the message ends with a one-line pointer to it.
+
+**If the server is live (200 confirmed):**
 
 ```
-✓ "{name}" is ready to run.
+🎉 "{name}" is live! I've opened it in your browser — if it didn't pop up, just click here:
 
-To start it:
-  cd {dir}
-  npm install
-  npm run dev
+  {url}
 
-Open the address it prints on the "Local:" line to see it — usually http://localhost:3000, or the next free port like http://localhost:3001 if you already have another app running. It runs right away — no setup needed.
+It's running right now, so click around and try it. Your work is saved right here in this browser as you go.
 {if any keyed service was selected, add a line: "When you're ready to connect real services (sign-in, AI, email, etc.), see the README."}
 
 What's built:
@@ -367,9 +374,13 @@ What's built:
 
 Ideas for next:
   - {2-3 concrete suggestions tied to their Q2 description}
+
+(If it ever stops, reopen the project and run npm run dev — the README has the steps.)
 ```
 
-Keep this final message short and encouraging. Don't list every file you created. Don't mention git.
+**Fallback — if the server wouldn't start or serve (locked-down machine, port trouble you couldn't resolve):** don't claim it's live. Tell them plainly how to start it themselves, e.g. "Your app is built and ready. To run it: open the project and run `npm run dev`, then open the address it prints on the `Local:` line." Keep the same "What's built" and "Ideas for next" sections from the live message above — don't thin them; the failure path deserves the same encouraging closeout.
+
+Keep the final message short and encouraging. Don't list every file you created. Don't mention git.
 
 ---
 
