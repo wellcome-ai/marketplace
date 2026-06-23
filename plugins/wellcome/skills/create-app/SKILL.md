@@ -351,7 +351,7 @@ Work through the criteria in order. After each meaningful change, commit with a 
 
 The build is completely finished now (no more `npm run build` will run), so it's safe to leave a dev server up. Don't hand the user terminal commands to run; put the working app in front of them, then report.
 
-1. **Start the app in the background.** Run `npm run dev` as a background process and **wait for it to print its `Local:` line** — it appears a second or two after launch, so don't read the URL before it's there. Then confirm it's actually serving: `curl -s -o /dev/null -w "%{http_code}" <url>` and expect `200`. Use the exact URL it printed — never a hardcoded `http://localhost:3000`; a user who built an earlier app today has that one on 3000, so this binds 3001+.
+1. **Start the app in the background.** Run `npm run dev` in the background **with its output captured where you can read it** (the run-in-background mechanism, or redirect to a temp log: `npm run dev > /tmp/dev-server.log 2>&1 &`). **Wait for its `Local:` line to appear** — it shows a second or two after launch, so don't read the URL before it's there — and take the URL from that exact line. Then confirm it's actually serving: `curl -s -o /dev/null -w "%{http_code}" <url>` and expect `200`. Use the exact URL it printed — never a hardcoded `http://localhost:3000`; a user who built an earlier app today has that one on 3000, so this binds 3001+.
 2. **Open it in their browser.** Open their default browser to that exact `Local:` URL so the app is on screen the moment you finish — on macOS run `open <url>` (build days run on Macs; elsewhere it's `xdg-open <url>` on Linux or `start <url>` on Windows). Don't make the user copy-paste a URL.
 3. **Decide which message to show.** **Only if step 1 confirmed a `200`** show the celebratory "it's live" message below. If the server wouldn't start or didn't serve a 200, do **not** claim it's live — use the fallback message instead (further down). Either way the real `Local:` URL is printed prominently, so even if the browser didn't visibly open (a locked-down machine), the user can click it.
 
@@ -364,7 +364,7 @@ The server keeps running for the rest of this session, so the app stays live whi
 
   {url}
 
-It's running right now, so click around and try it. Your work is saved right in this browser, so it'll still be here when you reopen that same link.
+It's running right now, so click around and try it. Your work is saved right here in this browser as you go.
 {if any keyed service was selected, add a line: "When you're ready to connect real services (sign-in, AI, email, etc.), see the README."}
 
 What's built:
@@ -376,7 +376,7 @@ Ideas for next:
 (If it ever stops, reopen the project and run npm run dev — the README has the steps.)
 ```
 
-**Fallback — if the server wouldn't start or serve (locked-down machine, port trouble you couldn't resolve):** don't claim it's live. Tell them plainly how to start it themselves, e.g. "Your app is built and ready. To run it: open the project and run `npm run dev`, then open the address it prints on the `Local:` line." Keep the "What's built" and "Ideas for next" sections.
+**Fallback — if the server wouldn't start or serve (locked-down machine, port trouble you couldn't resolve):** don't claim it's live. Tell them plainly how to start it themselves, e.g. "Your app is built and ready. To run it: open the project and run `npm run dev`, then open the address it prints on the `Local:` line." Keep the same "What's built" and "Ideas for next" sections from the live message above — don't thin them; the failure path deserves the same encouraging closeout.
 
 Keep the final message short and encouraging. Don't list every file you created. Don't mention git.
 

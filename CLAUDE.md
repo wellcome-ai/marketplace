@@ -61,7 +61,7 @@ The skill body is the actual product. When editing it, preserve these:
 
 5. **Stack lock-ins** (don't change without strong reason): Node + npm (not Bun, not pnpm — broadest AI training coverage); Next.js App Router only; Server Components by default; conventional commit messages.
 
-When inserting a step in Phase 3, the section letters (3a–3m) cascade. The "Stop conditions" block has an in-document reference to `3m` (the final report) that must update if Phase 3 grows.
+When inserting a step in Phase 3, the section letters (3a–3m) cascade. The "Stop conditions" block has an in-document reference to `3m` (now "launch the app, open it, and report") that must update if Phase 3 grows.
 
 ## Testing changes locally
 
