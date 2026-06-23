@@ -9,10 +9,13 @@ A Claude Code plugin marketplace. There is no build, test, or lint step — the 
 ```
 .claude-plugin/marketplace.json               marketplace catalog
 plugins/wellcome/.claude-plugin/plugin.json   plugin manifest
-plugins/wellcome/skills/create-app/SKILL.md   skill body (where the logic lives)
+plugins/wellcome/skills/create-app/SKILL.md   skill body — builds the app (where the logic lives)
+plugins/wellcome/skills/publish-app/SKILL.md  skill body — deploys the built app to Vercel
 README.md                                     user-facing intro
 docs/build-day-setup.md                       facilitator setup guide
 ```
+
+Two skills ship in the plugin: `create-app` (`/wellcome:create-app`, guided scaffold + build) and `publish-app` (`/wellcome:publish-app`, deploy to the user's own Vercel account via the Vercel CLI). Both are human-invocation-only (`disable-model-invocation: true`) and follow the same stance — make decisions for the non-technical user, keep git silent, report in plain English.
 
 The plugin's audience is **non-technical participants on Wellcome AI's accelerated build days**. Every editorial choice in SKILL.md serves them, not engineers — keep that in mind when editing copy.
 

@@ -21,6 +21,16 @@ claude --version  # the terminal Claude Code CLI must be installed
 
 If Node is missing or below 20.9, install Node 22 LTS or newer (the stack is validated on 24.x; below 22 is untested). If `claude` is missing, install the Claude Code CLI first.
 
+### Participant prerequisite — a free Vercel account (for publishing)
+
+Building an app needs nothing external. **Publishing it does** — `/wellcome:publish-app` puts each participant's app online under *their own* Vercel account, so every participant who wants a live, shareable link needs a free Vercel account.
+
+- It's free (Vercel's Hobby tier) and takes a minute to create. "Continue with Google" or "Continue with GitHub" is the fastest sign-up.
+- They don't need it to build, only to publish — but publishing is the satisfying finish, so it's worth having ready.
+- **Put this in the participant prep email** so people arrive with an account already created (or at least know they'll make one on the day). Ask them to sign up at <https://vercel.com/signup> beforehand. The publish step hands them a Vercel sign-in link to open; an account that already exists makes that a quick sign-in instead of a full sign-up mid-session.
+
+Nothing to pre-install on the machines for this — the Vercel CLI runs on demand via `npx`. The only per-participant requirement is the account itself.
+
 ### 2. Install the plugin
 
 Use whichever is faster for you. The terminal route scripts cleanly across many machines; the Customize route is all-GUI if you'd rather not touch a terminal.
@@ -57,6 +67,7 @@ Fully quit and reopen it. New plugins only register as slash commands on a fresh
 - Don't type `/plugin …` — it won't work in the desktop app, and it's already installed for you.
 - Open an empty folder and type `/wellcome:create-app`, then answer the questions in plain English.
 - The app it builds runs in your browser straight away — no accounts or keys to set up.
+- When you're happy with it, type `/wellcome:publish-app` to put it online and get a link you can share. You'll sign in to Vercel (free) once in your browser — that's the only step you do yourself.
 
 ## Keeping the plugin current
 
