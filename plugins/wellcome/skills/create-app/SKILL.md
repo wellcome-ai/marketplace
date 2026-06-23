@@ -160,6 +160,8 @@ The user is at a build day with **no external accounts** — no Supabase project
 
 Run create-next-app non-interactively with TypeScript, Tailwind, App Router, src directory, the `@/*` import alias, and using npm (not Bun). Skip ESLint setup to avoid prompts (we'll rely on TypeScript's checks). Accept all defaults.
 
+Then set `allowedDevOrigins: ["localhost", "127.0.0.1"]` in `next.config.ts`. Next 16 blocks its own dev resources from any origin not on this list, so an app opened via `http://127.0.0.1:3000` instead of `http://localhost:3000` hangs on a blank "Loading…" screen with no visible error. Allow-listing both makes either address work. (Viewing from another device on the same network needs that machine's LAN IP added too — covered in the README, 3k.)
+
 Commit: `chore: scaffold next.js`
 
 ### 3c. Add shadcn/ui and base deps
@@ -298,7 +300,8 @@ For each tool matched in Phase 1.5, install and configure it. Skip any that were
 
 Generate `README.md` with:
 - App name and description (from Q2)
-- **Quick start**: `npm install`, then `npm run dev` — the app runs in local mode with no configuration. Note that data is stored in the browser until real services are connected.
+- **Quick start**: `npm install`, then `npm run dev`, then open the address it prints on the `Local:` line (usually http://localhost:3000, or the next free port like http://localhost:3001 if another app is already running). The app runs in local mode with no configuration. Note that data is stored in the browser until real services are connected.
+- **View on another device (optional)**: to open the app from your phone or another computer on the same network, note the `Network:` address `npm run dev` prints, add that IP to `allowedDevOrigins` in `next.config.ts`, and restart `npm run dev`.
 - **Connect real services later (optional)**: copy `.env.example` to `.env.local` and fill in values to switch from local mode to live services. For each selected service, a one-line description of what to do (e.g. "Supabase: create a project at https://supabase.com/dashboard, copy the URL and anon key into `.env.local`"). Include only the services the user opted into.
 - **Deploy**: a short note that Vercel is the recommended deployment target, with a link to https://vercel.com/new
 
@@ -330,7 +333,8 @@ For any criterion gated on an external key or service (auth, storage, AI, email,
 14. If Sentry was selected: Sentry is configured in all three config files and initializes without errors at app boot (and no-ops cleanly when the DSN is absent)
 15. If Mapbox was selected: a map view renders when a token is present, and shows a placeholder (not a crash) when the token is absent
 16. If @react-pdf/renderer was selected: a PDF generation route exists and a "download" entry point is wired up in the UI
-17. The dev server (`npm run dev`) starts and the home page renders in the browser with **no runtime errors and no `.env` file present** (the app runs in local mode with zero environment variables)
+17. The dev server (`npm run dev`) starts and the home page renders in the browser with **no runtime errors and no `.env` file present** (the app runs in local mode with zero environment variables). Note the actual URL it prints on its `Local:` line: if port 3000 is already in use — e.g. by another app the user built earlier in the day — Next.js binds the next free port (3001, 3002, …). Use whatever it actually printed. Never assume 3000, and never kill or stop whatever already holds 3000 (it may be an unrelated app on the user's machine)
+18. `next.config.ts` sets `allowedDevOrigins: ["localhost", "127.0.0.1"]`, so the app also loads when opened via `http://127.0.0.1:<port>`, not only `localhost` — without it, Next 16 blocks its own dev resources cross-origin and the page hangs on "Loading…" with no visible error
 
 #### Iteration loop
 
@@ -345,7 +349,7 @@ Work through the criteria in order. After each meaningful change, commit with a 
 
 ### 3m. Final report
 
-When the build is done, tell the user:
+When the build is done, tell the user the message below, substituting the placeholders (`{name}`, `{dir}`, and the `{if any keyed service…}` conditional). Keep the "Local:" wording as written: a user who built an earlier app today will have it running on 3000, so this one binds 3001+, and pointing them at the address `npm run dev` prints, rather than a hardcoded 3000, is what lets them open the right project.
 
 ```
 ✓ "{name}" is ready to run.
@@ -355,7 +359,7 @@ To start it:
   npm install
   npm run dev
 
-Open http://localhost:3000 to see it. It runs right away — no setup needed.
+Open the address it prints on the "Local:" line to see it — usually http://localhost:3000, or the next free port like http://localhost:3001 if you already have another app running. It runs right away — no setup needed.
 {if any keyed service was selected, add a line: "When you're ready to connect real services (sign-in, AI, email, etc.), see the README."}
 
 What's built:

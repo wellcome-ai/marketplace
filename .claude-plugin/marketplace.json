@@ -9,7 +9,7 @@
       "name": "wellcome",
       "source": "./plugins/wellcome",
       "description": "Scaffold and build an app via a guided Q&A, with all technical decisions pre-made. Designed for non-technical users on accelerated build days.",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "author": {
         "name": "Richard Bremner"
       },
