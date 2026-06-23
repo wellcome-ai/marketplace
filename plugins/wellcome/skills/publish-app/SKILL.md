@@ -79,17 +79,18 @@ npx vercel whoami
 - If it prints an account name → they're already connected. Skip to Step 3.
 - If it errors / prints nothing → they need to log in.
 
-To log them in, tell them in plain English what's about to happen, then run the login:
+Logging in uses Vercel's **device flow**. When you run `npx vercel login`, the CLI prints a line like:
 
-> To put your app online I'll connect to Vercel — it's free and it's where your app will live. A browser window will open. Sign in (or create a free account — "Continue with Google" or "Continue with GitHub" is quickest), then come back here.
-
-```bash
-npx vercel login
+```
+Visit https://vercel.com/oauth/device?user_code=XXXX-XXXX
+Waiting for authentication...
 ```
 
-This opens their browser and waits. **This is the only step they do themselves — you cannot click the browser approval for them.** Once it completes, confirm with `npx vercel whoami` before moving on. If login times out or they close the window, run it again rather than giving up.
+and then **blocks, waiting** for the user to approve in a browser. It does **not** pop open a browser by itself in this context, and there's no terminal menu to drive — so your job is to hand that exact link to the user. Because the command blocks, **run it so you can read its output while it keeps waiting** (start it in the background and watch its output, rather than a plain foreground call that would just hang). Read the `Visit …` URL it printed, then give it to the user verbatim:
 
-Pick a sensible default if Vercel asks anything you can answer for them — never push a choice onto the user.
+> To put your app online, open this link and sign in to Vercel — it's free: **{the exact `https://vercel.com/oauth/device?user_code=…` URL}**. "Continue with Google" or "Continue with GitHub" is quickest. Approve the code it shows you, then come back — I'll take it from there.
+
+In the normal flow this sign-in is the only thing they do themselves — you can't approve it for them. Once they approve, the `vercel login` command finishes on its own; then confirm it worked with `npx vercel whoami` before moving on. If it times out or they close the tab, just run the login again.
 
 ---
 
@@ -121,12 +122,14 @@ Use the **`Aliased:`** URL — it's the clean, stable, public address and the on
 Before you tell the user it's live, confirm the link really serves their app. Curl the **exact** Aliased URL you just read — copy it verbatim, don't reconstruct it:
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}" <the exact Aliased URL from the output>
+curl -sS -o /dev/null -L -w "%{http_code} %{url_effective}" "<the exact Aliased URL from the output>"
 ```
 
-- **200** → it's live. Report it.
-- **The link lands on a Vercel login / SSO page** (the response redirects to `vercel.com/login`, or returns Vercel's "Authentication Required" challenge) → the deploy worked, but Vercel's **Deployment Protection** (a.k.a. **Vercel Authentication**) is gating the link, so visitors are asked to log in. Tell it apart by *where it lands*: a **Vercel** login page means protection; the app's own pages (even an error one) do not. This is uncommon on a fresh free account, and it's an account-level setting you can't flip from here on the user's behalf. So be honest: tell them the app deployed fine but Vercel is currently keeping it private, and point them to turn off **Deployment Protection / Vercel Authentication** for this project in their Vercel dashboard's project **Settings**, then run `/wellcome:publish-app` again to re-check. Don't report a login-walled link as "shareable" — it isn't until protection is off.
-- **Any other non-200 from the app itself (a 500, a 404, or a connection error right after deploying)** → don't assume protection. A just-finished deploy can take a few seconds to start serving, so wait a moment and curl the same URL once more. If it's still failing, it's the app, not a Vercel setting — read what the page or `npx vercel logs <url>` says and fix it the way the build skill would, then re-deploy. Don't loop on this: after a reasonable attempt with no obvious fix, tell the user plainly that the app deployed but its page isn't loading yet, rather than redeploying over and over.
+`-L` follows redirects, so a routine `307`/`308` (e.g. path normalisation) resolves to the real final status instead of looking like a failure; `%{url_effective}` shows where it ended up. Read **both** the status and the final URL:
+
+- **`200`, and the final URL is still on the app's own `*.vercel.app` domain** → it's live. Report it.
+- **The final URL is a Vercel login / SSO page** (it lands on `vercel.com/login` or a Vercel "Authentication Required" page — whatever the status code) → the deploy worked, but Vercel's **Deployment Protection** (a.k.a. **Vercel Authentication**) is gating the link, so visitors are asked to log in. Tell it apart by *where it lands*: a **Vercel** page means protection; the app's own pages (even an error one) do not. This is uncommon on a fresh free account, and it's an account-level setting you can't flip from here on the user's behalf. So be honest: tell them the app deployed fine but Vercel is currently keeping it private, and point them to turn off **Deployment Protection / Vercel Authentication** for this project in their Vercel dashboard's project **Settings**, then run `/wellcome:publish-app` again to re-check. Don't report a login-walled link as "shareable" — it isn't until protection is off.
+- **Any other result — a non-200 that stayed on the app's own domain (a 500, a 404, or a connection error right after deploying)** → don't assume protection. A just-finished deploy can take a few seconds to start serving, so wait a moment and curl the same URL once more. If it's still failing, it's the app, not a Vercel setting — read what the page or `npx vercel logs <url>` says and fix it the way the build skill would, then re-deploy. Don't loop on this: after a reasonable attempt with no obvious fix, tell the user plainly that the app deployed but its page isn't loading yet, rather than redeploying over and over.
 
 If the deploy itself errors, read the message, fix what you can (a missing build output, a transient network error → retry), and only surface it if you're truly stuck.
 

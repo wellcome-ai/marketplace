@@ -27,7 +27,7 @@ Building an app needs nothing external. **Publishing it does** — `/wellcome:pu
 
 - It's free (Vercel's Hobby tier) and takes a minute to create. "Continue with Google" or "Continue with GitHub" is the fastest sign-up.
 - They don't need it to build, only to publish — but publishing is the satisfying finish, so it's worth having ready.
-- **Put this in the participant prep email** so people arrive with an account already created (or at least know they'll make one on the day). Ask them to sign up at <https://vercel.com/signup> beforehand. The publish step opens the browser login for them; an account that already exists makes that one click instead of a full sign-up mid-session.
+- **Put this in the participant prep email** so people arrive with an account already created (or at least know they'll make one on the day). Ask them to sign up at <https://vercel.com/signup> beforehand. The publish step hands them a Vercel sign-in link to open; an account that already exists makes that a quick sign-in instead of a full sign-up mid-session.
 
 Nothing to pre-install on the machines for this — the Vercel CLI runs on demand via `npx`. The only per-participant requirement is the account itself.
 
