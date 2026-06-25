@@ -21,6 +21,8 @@ claude --version  # the terminal Claude Code CLI must be installed
 
 If Node is missing or below 20.9, install Node 22 LTS or newer (the stack is validated on 24.x; below 22 is untested). If `claude` is missing, install the Claude Code CLI first.
 
+**Google Chrome must be installed.** The plugin bundles the `chrome-devtools` MCP server (declared in `plugins/wellcome/.mcp.json`), which the agent uses to open each app in a real browser and confirm it renders during the build loop. It installs automatically with the plugin (no separate `claude mcp add` step), but it drives Chrome at runtime, so Chrome has to be present on the machine. The first time it runs, the desktop app shows a one-time "approve this MCP server?" prompt — approve it. The server itself downloads on demand via `npx`, so nothing else to pre-install.
+
 ### Participant prerequisite — a free Vercel account (for publishing)
 
 Building an app needs nothing external. **Publishing it does** — `/wellcome:publish-app` puts each participant's app online under *their own* Vercel account, so every participant who wants a live, shareable link needs a free Vercel account.
